@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { Header } from "@/components/header"
+import { SessionProvider } from "@/components/session-provider"
 
 export const metadata: Metadata = {
   metadataBase: new URL("http://localhost:3000"),
@@ -58,8 +59,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-background font-sans antialiased">
-        <Header />
-        {children}
+        <SessionProvider>
+          <Header />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   )

@@ -28,6 +28,7 @@ interface Provider {
 
 const fetchGroqModels = async (apiKey: string): Promise<string[]> => {
   try {
+    console.log("[v0] Fetching Groq models with API key")
     const response = await fetch("https://api.groq.com/openai/v1/models", {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -36,24 +37,32 @@ const fetchGroqModels = async (apiKey: string): Promise<string[]> => {
     })
 
     if (!response.ok) {
-      throw new Error("Failed to fetch models")
+      console.error("[v0] Groq API response not ok:", response.status, response.statusText)
+      throw new Error(`Failed to fetch models: ${response.status}`)
     }
 
     const data = await response.json()
-    // Filter out audio models (whisper) and guard models, keep only text generation models
-    return data.data
-      .filter(
-        (model: any) =>
-          model.active &&
-          !model.id.includes("whisper") &&
-          !model.id.includes("guard") &&
-          !model.id.includes("distil-whisper"),
-      )
-      .map((model: any) => model.id)
-      .sort()
+    console.log("[v0] Groq API response:", data)
+
+    const models =
+      data.data
+        ?.filter(
+          (model: any) =>
+            model.active &&
+            !model.id.includes("whisper") &&
+            !model.id.includes("guard") &&
+            !model.id.includes("distil-whisper") &&
+            !model.id.includes("tts"),
+        )
+        ?.map((model: any) => model.id)
+        ?.sort() || []
+
+    console.log("[v0] Filtered Groq models:", models)
+    return models.length > 0
+      ? models
+      : ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b"]
   } catch (error) {
-    console.error("Error fetching Groq models:", error)
-    // Fallback to static models if API fails
+    console.error("[v0] Error fetching Groq models:", error)
     return [
       "llama-3.1-8b-instant",
       "llama-3.3-70b-versatile",
@@ -118,14 +127,30 @@ export function BYOKSetup() {
   }, [])
 
   useEffect(() => {
-    if (selectedProvider === "groq" && apiKey && apiKey.startsWith("gsk_")) {
+    if (selectedProvider === "groq") {
       setLoadingGroqModels(true)
-      fetchGroqModels(apiKey).then((models) => {
-        setGroqModels(models)
+      // Use a temporary API key or existing one to fetch models
+      const existingGroqKey = apiKeys.find((k) => k.provider === "groq")?.key
+      const keyToUse = apiKey && apiKey.startsWith("gsk_") ? apiKey : existingGroqKey
+
+      if (keyToUse) {
+        fetchGroqModels(keyToUse)
+          .then((models) => {
+            console.log("[v0] Loaded Groq models:", models)
+            setGroqModels(models)
+            setLoadingGroqModels(false)
+          })
+          .catch((error) => {
+            console.error("[v0] Failed to load Groq models:", error)
+            setLoadingGroqModels(false)
+          })
+      } else {
+        // Load fallback models if no API key available
+        setGroqModels(["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b"])
         setLoadingGroqModels(false)
-      })
+      }
     }
-  }, [selectedProvider, apiKey])
+  }, [selectedProvider, apiKey, apiKeys])
 
   // Save API keys to localStorage
   const saveApiKeys = (keys: APIKey[]) => {
@@ -139,14 +164,20 @@ export function BYOKSetup() {
 
     if (provider === "groq") {
       try {
+        console.log("[v0] Validating Groq API key")
         const models = await fetchGroqModels(key)
-        return models.length > 0
-      } catch {
+        const isValid = models.length > 0
+        console.log("[v0] Groq API key validation result:", isValid)
+        return isValid
+      } catch (error) {
+        console.error("[v0] Groq API key validation failed:", error)
         return false
       }
     }
 
-    return key.startsWith(providerConfig.keyPrefix) && key.length > 10
+    const isValidFormat = key.startsWith(providerConfig.keyPrefix) && key.length > 10
+    console.log("[v0] API key format validation for", provider, ":", isValidFormat)
+    return isValidFormat
   }
 
   const handleAddKey = async () => {

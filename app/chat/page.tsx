@@ -7,10 +7,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
-import { Plus, Send, Settings, Brain, Trash2, Upload, X } from "lucide-react"
+import { Plus, Send, Settings, Brain, Trash2, Upload, X, Share, Database } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { BYOKSetup } from "@/components/byok-setup"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { DataSyncManager } from "@/components/data-sync-manager"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 interface ChatMessage {
   role: "user" | "assistant" | "system"
@@ -27,9 +38,12 @@ interface Conversation {
   provider: string
   model: string
   created_at: string
+  is_shared?: boolean
+  share_token?: string
 }
 
 export default function ChatPage() {
+  const { data: session, status } = useSession()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -37,6 +51,7 @@ export default function ChatPage() {
   const [streamingMessage, setStreamingMessage] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
+  const [showSyncManager, setShowSyncManager] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -47,8 +62,41 @@ export default function ChatPage() {
   const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
+  const [cloudMode, setCloudMode] = useState<boolean>(true)
 
   useEffect(() => {
+    if (status === "loading") return
+
+    if (session?.user) {
+      loadUserSettings()
+    } else {
+      loadLocalSettings()
+    }
+  }, [session, status, selectedProvider])
+
+  const loadUserSettings = async () => {
+    try {
+      const response = await fetch("/api/user/settings")
+      if (response.ok) {
+        const settings = await response.json()
+        const keyMap = settings.api_keys || {}
+        setApiKeys(keyMap)
+        setSelectedProvider(settings.default_provider || "groq")
+        setSelectedModel(settings.default_model || "llama-3.1-8b-instant")
+        setMemoryEnabled(true)
+        setCloudMode(settings.cloud_sync !== false)
+
+        if (Object.keys(keyMap).length === 0) {
+          setShowApiSetup(true)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load user settings:", error)
+      setShowApiSetup(true)
+    }
+  }
+
+  const loadLocalSettings = () => {
     const keys = localStorage.getItem("zen0-api-keys")
     if (keys) {
       const parsedKeys = JSON.parse(keys)
@@ -65,6 +113,7 @@ export default function ChatPage() {
       setApiKeys(keyMap)
       setModelPreferences(modelMap)
       setMemoryEnabled(!!keyMap.mem0)
+      setCloudMode(false)
 
       const availableProviders = Object.keys(keyMap)
       if (availableProviders.length > 0 && !selectedProvider) {
@@ -79,46 +128,100 @@ export default function ChatPage() {
     } else {
       setShowApiSetup(true)
     }
-  }, [selectedProvider])
+  }
 
   useEffect(() => {
-    fetchConversations()
-  }, [])
+    if (status !== "loading") {
+      fetchConversations()
+    }
+  }, [session, status])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, streamingMessage])
 
   const fetchConversations = async () => {
-    const stored = localStorage.getItem("zen0-conversations")
-    if (stored) {
-      setConversations(JSON.parse(stored))
+    if (session?.user && cloudMode) {
+      try {
+        const response = await fetch("/api/user/conversations")
+        if (response.ok) {
+          const data = await response.json()
+          setConversations(data.conversations || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch conversations:", error)
+      }
+    } else {
+      const stored = localStorage.getItem("zen0-conversations")
+      if (stored) {
+        setConversations(JSON.parse(stored))
+      }
     }
   }
 
   const saveConversations = (convs: Conversation[]) => {
-    localStorage.setItem("zen0-conversations", JSON.stringify(convs))
+    if (!session?.user || !cloudMode) {
+      localStorage.setItem("zen0-conversations", JSON.stringify(convs))
+    }
     setConversations(convs)
   }
 
   const loadConversationMessages = async (conversationId: string) => {
-    const stored = localStorage.getItem(`zen0-messages-${conversationId}`)
-    if (stored) {
-      setMessages(JSON.parse(stored))
+    if (session?.user && cloudMode) {
+      try {
+        const response = await fetch(`/api/conversations/${conversationId}/messages`)
+        if (response.ok) {
+          const data = await response.json()
+          setMessages(data.messages || [])
+        } else {
+          setMessages([])
+        }
+      } catch (error) {
+        console.error("Failed to load messages:", error)
+        setMessages([])
+      }
     } else {
-      setMessages([])
+      const stored = localStorage.getItem(`zen0-messages-${conversationId}`)
+      if (stored) {
+        setMessages(JSON.parse(stored))
+      } else {
+        setMessages([])
+      }
     }
   }
 
-  const saveMessages = (conversationId: string, msgs: ChatMessage[]) => {
-    localStorage.setItem(`zen0-messages-${conversationId}`, JSON.stringify(msgs))
+  const saveMessages = async (conversationId: string, msgs: ChatMessage[]) => {
+    if (session?.user && cloudMode) {
+      try {
+        await fetch(`/api/conversations/${conversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: msgs }),
+        })
+      } catch (error) {
+        console.error("Failed to save messages:", error)
+        localStorage.setItem(`zen0-messages-${conversationId}`, JSON.stringify(msgs))
+      }
+    } else {
+      localStorage.setItem(`zen0-messages-${conversationId}`, JSON.stringify(msgs))
+    }
   }
 
   const deleteConversation = async (conversationId: string) => {
+    if (session?.user && cloudMode) {
+      try {
+        await fetch(`/api/conversations/${conversationId}`, {
+          method: "DELETE",
+        })
+      } catch (error) {
+        console.error("Failed to delete conversation:", error)
+      }
+    } else {
+      localStorage.removeItem(`zen0-messages-${conversationId}`)
+    }
+
     const updatedConversations = conversations.filter((conv) => conv.id !== conversationId)
     saveConversations(updatedConversations)
-
-    localStorage.removeItem(`zen0-messages-${conversationId}`)
 
     if (currentConversation?.id === conversationId) {
       setCurrentConversation(null)
@@ -142,9 +245,28 @@ export default function ChatPage() {
       created_at: new Date().toISOString(),
     }
 
-    const updatedConversations = [newConversation, ...conversations]
-    saveConversations(updatedConversations)
-    setCurrentConversation(newConversation)
+    if (session?.user && cloudMode) {
+      try {
+        const response = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newConversation),
+        })
+        if (response.ok) {
+          const savedConversation = await response.json()
+          const updatedConversations = [savedConversation, ...conversations]
+          setConversations(updatedConversations)
+          setCurrentConversation(savedConversation)
+        }
+      } catch (error) {
+        console.error("Failed to create conversation:", error)
+      }
+    } else {
+      const updatedConversations = [newConversation, ...conversations]
+      saveConversations(updatedConversations)
+      setCurrentConversation(newConversation)
+    }
+
     setMessages([])
   }
 
@@ -200,7 +322,7 @@ export default function ChatPage() {
       const newMessages = [...messages, imageMessage]
       setMessages(newMessages)
       if (currentConversation) {
-        saveMessages(currentConversation.id, newMessages)
+        await saveMessages(currentConversation.id, newMessages)
       }
     } catch (error) {
       console.error("Image generation failed:", error)
@@ -222,7 +344,7 @@ export default function ChatPage() {
         const userMessage: ChatMessage = { role: "user", content: input }
         const newMessages = [...messages, userMessage]
         setMessages(newMessages)
-        saveMessages(currentConversation.id, newMessages)
+        await saveMessages(currentConversation.id, newMessages)
         setInput("")
         await generateImage(prompt)
       }
@@ -232,7 +354,7 @@ export default function ChatPage() {
     let messageContent = input
     if (uploadedImage && imageFile) {
       try {
-        setIsStreaming(true) // Show loading state during OCR
+        setIsStreaming(true)
         setStreamingMessage("Extracting text from image...")
 
         const extractedText = await extractTextFromImage(uploadedImage)
@@ -258,7 +380,7 @@ export default function ChatPage() {
     }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
-    saveMessages(currentConversation.id, newMessages)
+    await saveMessages(currentConversation.id, newMessages)
     setInput("")
     removeUploadedImage()
     setIsStreaming(true)
@@ -313,7 +435,7 @@ export default function ChatPage() {
 
       const finalMessages = [...newMessages, { role: "assistant", content: completeMessage }]
       setMessages(finalMessages)
-      saveMessages(currentConversation.id, finalMessages)
+      await saveMessages(currentConversation.id, finalMessages)
       setStreamingMessage("")
     } catch (error) {
       console.error("Failed to send message:", error)
@@ -339,6 +461,87 @@ export default function ChatPage() {
     } catch (error) {
       console.error("OCR extraction failed:", error)
       return ""
+    }
+  }
+
+  const shareConversation = async (conversationId: string) => {
+    if (!session?.user) {
+      toast.error("Sign in required to share conversations")
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/share`, {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const shareUrl = `${window.location.origin}/shared/${data.shareToken}`
+
+        await navigator.clipboard.writeText(shareUrl)
+        toast.success("Share link copied to clipboard!")
+
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === conversationId ? { ...conv, is_shared: true, share_token: data.shareToken } : conv,
+          ),
+        )
+
+        if (currentConversation?.id === conversationId) {
+          setCurrentConversation((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  is_shared: true,
+                  share_token: data.shareToken,
+                }
+              : null,
+          )
+        }
+      } else {
+        toast.error("Failed to share conversation")
+      }
+    } catch (error) {
+      console.error("Failed to share conversation:", error)
+      toast.error("Failed to share conversation")
+    }
+  }
+
+  const unshareConversation = async (conversationId: string) => {
+    if (!session?.user) return
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/share`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast.success("Conversation is no longer shared")
+
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === conversationId ? { ...conv, is_shared: false, share_token: undefined } : conv,
+          ),
+        )
+
+        if (currentConversation?.id === conversationId) {
+          setCurrentConversation((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  is_shared: false,
+                  share_token: undefined,
+                }
+              : null,
+          )
+        }
+      } else {
+        toast.error("Failed to unshare conversation")
+      }
+    } catch (error) {
+      console.error("Failed to unshare conversation:", error)
+      toast.error("Failed to unshare conversation")
     }
   }
 
@@ -405,6 +608,10 @@ export default function ChatPage() {
               </Badge>
             </div>
           )}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Database className="w-3 h-3" />
+            <span>{cloudMode && session?.user ? "Cloud Sync" : "Local Storage"}</span>
+          </div>
         </div>
 
         <ScrollArea className="flex-1 p-2">
@@ -419,7 +626,14 @@ export default function ChatPage() {
                 }}
               >
                 <div className="text-left truncate">
-                  <div className="font-medium truncate">{conv.title}</div>
+                  <div className="font-medium truncate flex items-center gap-2">
+                    {conv.title}
+                    {conv.is_shared && (
+                      <Badge variant="outline" className="text-xs">
+                        Shared
+                      </Badge>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {conv.provider} • {conv.model}
                   </div>
@@ -440,11 +654,31 @@ export default function ChatPage() {
           ))}
         </ScrollArea>
 
-        <div className="p-4 border-t">
+        <div className="p-4 border-t space-y-2">
           <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => setShowApiSetup(true)}>
             <Settings className="w-4 h-4 mr-2" />
             API Settings
           </Button>
+          <Dialog open={showSyncManager} onOpenChange={setShowSyncManager}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-start">
+                <Database className="w-4 h-4 mr-2" />
+                Data Sync
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Data Sync & Storage</DialogTitle>
+                <DialogDescription>Manage how your conversations are stored and synchronized</DialogDescription>
+              </DialogHeader>
+              <DataSyncManager
+                onSyncComplete={() => {
+                  fetchConversations()
+                  setShowSyncManager(false)
+                }}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -461,12 +695,30 @@ export default function ChatPage() {
                     </p>
                   </div>
                 </div>
-                {memoryEnabled && (
-                  <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                    <Brain className="w-3 h-3" />
-                    Memory Active
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {session?.user && cloudMode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (currentConversation.is_shared) {
+                          unshareConversation(currentConversation.id)
+                        } else {
+                          shareConversation(currentConversation.id)
+                        }
+                      }}
+                    >
+                      <Share className="w-4 h-4 mr-2" />
+                      {currentConversation.is_shared ? "Unshare" : "Share"}
+                    </Button>
+                  )}
+                  {memoryEnabled && (
+                    <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                      <Brain className="w-3 h-3" />
+                      Memory Active
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
