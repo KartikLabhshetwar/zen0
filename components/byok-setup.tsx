@@ -267,7 +267,7 @@ export function BYOKSetup() {
                               size="lg"
                               onClick={handleSaveEdit}
                               disabled={validating}
-                              className="flex-1 h-12 bg-gray-900 hover:bg-gray-800 rounded-xl font-medium"
+                              className="flex-1 h-12 bg-neutral-800 hover:bg-neutral-900 rounded-xl font-medium"
                             >
                               <Save className="w-5 h-5 mr-2" />
                               {validating ? "Saving..." : "Save Changes"}
@@ -386,7 +386,7 @@ export function BYOKSetup() {
               <Button
                 onClick={handleAddKey}
                 disabled={!apiKey || !selectedModel || validating}
-                className="w-full max-w-md mx-auto h-12 bg-gray-900 hover:bg-gray-800 text-base font-medium rounded-xl"
+                className="w-full max-w-md mx-auto h-12 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-xl"
               >
                 {validating ? "Validating..." : "Add Groq API Key"}
               </Button>

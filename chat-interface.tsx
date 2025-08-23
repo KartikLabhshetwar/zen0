@@ -59,7 +59,9 @@ export default function ChatInterface() {
                     {message.timestamp}
                   </span>
                 </div>
-                <div className="p-3 md:p-4 bg-muted/50 rounded-2xl md:rounded-lg">
+                <div className={`p-3 md:p-4 rounded-2xl md:rounded-lg ${
+                  message.role === "user" ? "bg-neutral-800 text-white" : "bg-gray-100 text-gray-900"
+                }`}>
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                 </div>
                 {message.role === "agent" && (
@@ -91,7 +93,7 @@ export default function ChatInterface() {
             onChange={(e) => setInput(e.target.value)}
             className="min-h-[44px] max-h-32 resize-none"
           />
-          <Button size="icon" className="h-11 w-11 rounded-lg">
+          <Button size="icon" className="h-11 w-11 rounded-lg bg-neutral-700 hover:bg-neutral-900">
             <Send className="h-4 w-4" />
           </Button>
         </div>

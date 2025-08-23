@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
@@ -362,33 +363,33 @@ export default function ChatPage() {
           <BYOKSetup />
           <div className="text-center mt-8 sm:mt-12">
             <Button
-              onClick={() => {
-                const keys = localStorage.getItem("zen0-api-keys")
-                if (keys) {
-                  const parsedKeys = JSON.parse(keys)
-                  const keyMap: Record<string, string> = {}
-                  const modelMap: Record<string, string> = {}
+                onClick={() => {
+                  const keys = localStorage.getItem("zen0-api-keys")
+                  if (keys) {
+                    const parsedKeys = JSON.parse(keys)
+                    const keyMap: Record<string, string> = {}
+                    const modelMap: Record<string, string> = {}
 
-                  parsedKeys.forEach((key: any) => {
-                    if (key.provider === "groq") {
-                      keyMap[key.provider] = key.key
-                      if (key.model) {
-                        modelMap[key.provider] = key.model
+                    parsedKeys.forEach((key: any) => {
+                      if (key.provider === "groq") {
+                        keyMap[key.provider] = key.key
+                        if (key.model) {
+                          modelMap[key.provider] = key.model
+                        }
                       }
+                    })
+
+                    setApiKey(keyMap.groq || "")
+                    setSelectedModel(modelMap.groq || "llama-3.1-8b-instant")
+                    setMemoryEnabled(!!keyMap.mem0)
+
+                    if (keyMap.groq) {
+                      setShowApiSetup(false)
                     }
-                  })
-
-                  setApiKey(keyMap.groq || "")
-                  setSelectedModel(modelMap.groq || "llama-3.1-8b-instant")
-                  setMemoryEnabled(!!keyMap.mem0)
-
-                  if (keyMap.groq) {
-                    setShowApiSetup(false)
                   }
-                }
-              }}
-              className="h-10 px-6 sm:px-8 bg-gray-900 hover:bg-gray-800 text-base font-medium rounded-full"
-            >
+                }}
+                className="h-10 px-6 sm:px-8 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-full"
+              >
               Continue to Chat
             </Button>
           </div>
@@ -411,21 +412,12 @@ export default function ChatPage() {
       <div className={`${sidebarCollapsed ? 'md:w-20 -translate-x-full md:translate-x-0' : 'md:w-80 translate-x-0'} w-full md:border-r border-gray-200 bg-white flex flex-col transition-all duration-300 ease-in-out md:relative absolute md:static z-30 h-full`}>
         {/* Sidebar Header with Toggle */}
         <div className="p-4 border-b border-gray-200">
-          <div className="flex flex-col items-center gap-2 mb-4">
-            <Button 
-              onClick={createNewConversation} 
-              className={`${sidebarCollapsed ? 'md:w-12 md:px-0' : 'md:w-full'} h-10 bg-gray-900 hover:bg-gray-800 font-medium rounded-lg transition-all duration-300`}
-            >
-              {sidebarCollapsed ? (
-                <Plus className="w-5 h-5" />
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Chat
-                </>
-              )}
-            </Button>
-            {sidebarCollapsed && (
+          <div className="flex flex-col items-center gap-3 mb-4">
+            {sidebarCollapsed ? (
+              <>
+              <Link href="/" className="flex flex-col items-center gap-2">
+                <div className="text-lg font-bold text-neutral-800">zen0</div>
+              </Link>
               <Button
                 variant="ghost"
                 size="sm"
@@ -434,6 +426,28 @@ export default function ChatPage() {
               >
                 <ChevronsRight className="w-4 h-4" />
               </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between w-full">
+                  <Link href="/" className="text-lg font-bold text-neutral-800">zen0</Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="hidden md:flex h-8 w-8 p-0 rounded-md hover:bg-gray-100"
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </Button>
+                </div>
+                <Button 
+                  onClick={createNewConversation} 
+                  className="md:w-full h-10 bg-neutral-800 hover:bg-neutral-900 font-medium rounded-lg transition-all duration-300 w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Chat
+                </Button>
+              </>
             )}
             <div className="flex items-center gap-1 w-full justify-between md:justify-end">
               {/* Mobile Close Button */}
@@ -445,17 +459,6 @@ export default function ChatPage() {
               >
                 <X className="w-4 h-4" />
               </Button>
-              {/* Desktop Toggle Button */}
-              {!sidebarCollapsed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="hidden md:flex h-8 w-8 p-0 rounded-md hover:bg-gray-100"
-                >
-                  <ChevronsLeft className="w-4 h-4" />
-                </Button>
-              )}
             </div>
           </div>
           
@@ -619,11 +622,11 @@ export default function ChatPage() {
               <div className="space-y-4 max-w-3xl mx-auto">
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[85%] md:max-w-[80%] rounded-2xl p-4 ${
-                        message.role === "user" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900"
-                      }`}
-                    >
+                                      <div
+                    className={`max-w-[85%] md:max-w-[80%] rounded-2xl p-4 ${
+                      message.role === "user" ? "bg-neutral-800 text-white" : "bg-gray-100 text-gray-900"
+                    }`}
+                  >
                       {message.role === "assistant" ? (
                         <Markdown className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
                           {message.content}
@@ -747,7 +750,7 @@ export default function ChatPage() {
                         <Button
                           variant="default"
                           size="icon"
-                          className="h-9 w-9 rounded-full bg-gray-900 hover:bg-gray-800"
+                          className="h-9 w-9 rounded-full bg-neutral-700 hover:bg-neutral-900"
                           onClick={sendMessage}
                           disabled={isStreaming || (!input.trim() && files.length === 0)}
                         >
