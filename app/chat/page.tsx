@@ -426,6 +426,15 @@ export default function ChatPage() {
               >
                 <ChevronsRight className="w-4 h-4" />
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={createNewConversation}
+                className="h-8 w-8 p-0 rounded-full bg-neutral-800 hover:bg-neutral-900"
+                title="New Chat"
+              >
+                <Plus className="w-4 h-4 text-white" />
+              </Button>
               </>
             ) : (
               <>

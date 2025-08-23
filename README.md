@@ -1,11 +1,12 @@
-# zen0 - AI Chat with Local Storage
+# zen0 - AI Chat with Blazing Fast Responses
 
-A modern AI chatbot application that stores all data locally in the browser's localStorage. No authentication, no database, no external dependencies - just pure local AI conversations.
+A modern AI chatbot application that delivers blazing fast responses using Groq's lightning-fast inference technology. All data is stored locally in your browser's localStorage for complete privacy.
 
 ## Features
 
+- **Blazing Fast Responses**: Powered by Groq's ultra-fast inference for near-instantaneous AI responses
 - **Local Storage**: All conversations, messages, and settings are stored locally in your browser
-- **Multiple AI Providers**: Support for OpenAI, Anthropic, Groq, and Google Gemini
+- **Multiple Groq Models**: Access to all Llama, DeepSeek, and other models available through Groq
 - **Image Upload & OCR**: Upload images and extract text for context
 - **Image Generation**: Generate images using DALL-E with `/generate` command
 - **Memory System**: Simple local memory system for conversation context
@@ -25,14 +26,14 @@ A modern AI chatbot application that stores all data locally in the browser's lo
    pnpm install
    ```
 
-3. **Set up API keys**
+3. **Set up Groq API key**
    - Navigate to the chat page
-   - Click "API Settings" to configure your AI provider API keys
-   - Supported providers: OpenAI, Anthropic, Groq, Google Gemini
+   - Click "API Settings" to configure your Groq API key
+   - Get your API key from [Groq Console](https://console.groq.com/keys)
 
 4. **Start chatting**
    - Create a new conversation
-   - Start chatting with AI models
+   - Experience blazing fast responses with Groq-powered models
    - Upload images for context
    - Use `/generate [prompt]` for image creation
 
@@ -47,8 +48,8 @@ A modern AI chatbot application that stores all data locally in the browser's lo
 ### Key Components
 - **LocalStorageService**: Handles all data persistence
 - **Chat Interface**: Main chat functionality
-- **API Routes**: Simplified endpoints for AI provider communication
-- **BYOK Setup**: API key configuration interface
+- **API Routes**: Simplified endpoints for Groq API communication
+- **BYOK Setup**: Groq API key configuration interface
 
 ## Data Management
 
@@ -64,23 +65,19 @@ A modern AI chatbot application that stores all data locally in the browser's lo
 - Option to clear all local data if needed
 - Use with caution as this action cannot be undone
 
-## API Providers
+## Groq API
 
-### OpenAI
-- Models: GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo
-- Key format: `sk-...`
+### Models
+- Access to all models available through Groq including:
+  - Llama 3.1 (8B, 70B)
+  - Llama 3 (8B, 70B)
+  - Mixtral 8x7B
+  - Gemma 2 9B
+  - And more (fetched dynamically)
 
-### Anthropic
-- Models: Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus
-- Key format: `sk-ant-...`
-
-### Groq
-- Models: Llama, DeepSeek, and more (fetched dynamically)
-- Key format: `gsk_...`
-
-### Google Gemini
-- Models: Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini Pro
-- Key format: `AIza...`
+### Key Format
+- Groq API keys start with `gsk_`
+- Get your key from [Groq Console](https://console.groq.com/keys)
 
 ## Development
 
