@@ -71,6 +71,17 @@ model VerificationToken {
   @@map("verificationtoken")
 }
 
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
 // Application specific tables
 model Conversation {
   id        String   @id @default(cuid())
