@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -47,20 +47,6 @@ export default function ChatPage() {
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
 
-  // Debounced streaming message update to reduce jittering
-  const debouncedSetStreamingMessage = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout
-      return (content: string) => {
-        clearTimeout(timeoutId)
-        timeoutId = setTimeout(() => {
-          setStreamingMessage(content)
-        }, 50) // 50ms debounce
-      }
-    })(),
-    []
-  )
-
   useEffect(() => {
     loadLocalSettings()
   }, [])
@@ -77,14 +63,14 @@ export default function ChatPage() {
   }, [messages, isStreaming])
 
   // Stable scroll to bottom during streaming
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = () => {
     if (scrollAreaRef.current) {
       const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight
       }
     }
-  }, [])
+  }
 
   // Update scroll position when streaming message changes
   useEffect(() => {
@@ -217,8 +203,7 @@ export default function ChatPage() {
               const content = parsed.choices?.[0]?.delta?.content
               if (content) {
                 completeMessage += content
-                // Use debounced update to reduce jittering
-                debouncedSetStreamingMessage(completeMessage)
+                setStreamingMessage(completeMessage)
               }
             } catch (e) {
               // Skip invalid JSON
@@ -227,8 +212,7 @@ export default function ChatPage() {
         }
       }
 
-      // Clear streaming message first, then add final message
-      setStreamingMessage("")
+      // Add the final message to the messages array
       const finalMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: completeMessage }]
       setMessages(finalMessages)
       saveMessages(currentConversation.id, finalMessages)
@@ -239,8 +223,16 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error("Failed to send message:", error)
+      // Add error message to chat
+      const errorMessages: ChatMessage[] = [...newMessages, { 
+        role: "assistant", 
+        content: "Sorry, I encountered an error. Please try again." 
+      }]
+      setMessages(errorMessages)
+      saveMessages(currentConversation.id, errorMessages)
     } finally {
       setIsStreaming(false)
+      setStreamingMessage("")
     }
   }
 
