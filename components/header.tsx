@@ -2,11 +2,11 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useAuthClient } from "@/lib/auth-client"
+import { useSession, signOut } from "next-auth/react"
 import { useEffect, useState } from "react"
 
 export function Header() {
-  const { data: session, signOut } = useAuthClient()
+  const { data: session } = useSession()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
