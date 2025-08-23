@@ -1,52 +1,21 @@
 import type { NextRequest } from "next/server"
-import { auth } from "@/auth"
-import { getUserByEmail, addMessage, getConversationById } from "@/lib/db"
 import { getMemoryService } from "@/lib/memory"
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: req.headers })
-    if (!session?.user?.email) {
-      return new Response("Unauthorized", { status: 401 })
-    }
+    const { messages, provider, model, apiKey, conversationId } = await req.json()
 
-    const { messages, provider, model, apiKey, conversationId, mem0ApiKey } = await req.json()
-
-    // Get user from database
-    const user = await getUserByEmail(session.user.email)
-    if (!user) {
-      return new Response("User not found", { status: 404 })
-    }
-
-    const memoryService = getMemoryService(mem0ApiKey)
+    const memoryService = getMemoryService()
     let enhancedMessages = messages
 
-    if (memoryService.isEnabled() && messages.length > 0) {
+    if (memoryService.isEnabled() && messages.length > 0 && conversationId) {
       const userQuery = messages[messages.length - 1].content
-      const relevantMemories = await memoryService.getRelevantMemories(userQuery, user.id)
+      const relevantMemories = await memoryService.getRelevantMemories(userQuery, conversationId)
 
       if (relevantMemories.length > 0) {
         const systemPrompt = memoryService.generateSystemPrompt(relevantMemories, userQuery)
         enhancedMessages = [{ role: "system", content: systemPrompt }, ...messages.filter((m) => m.role !== "system")]
       }
-    }
-
-    // Validate conversation ownership if provided
-    let conversation
-    if (conversationId) {
-      conversation = await getConversationById(conversationId, user.id)
-      if (!conversation) {
-        return new Response("Conversation not found", { status: 404 })
-      }
-    }
-
-    // Save user message to database
-    if (conversationId) {
-      await addMessage({
-        conversation_id: conversationId,
-        role: "user",
-        content: messages[messages.length - 1].content,
-      })
     }
 
     // Prepare API call based on provider
@@ -63,7 +32,7 @@ export async function POST(req: NextRequest) {
         }
         body = {
           model,
-          messages: enhancedMessages, // Use enhanced messages with memory context
+          messages: enhancedMessages,
           stream: true,
         }
         break
@@ -76,7 +45,7 @@ export async function POST(req: NextRequest) {
         }
         body = {
           model,
-          messages: enhancedMessages, // Use enhanced messages with memory context
+          messages: enhancedMessages,
           stream: true,
         }
         break
@@ -91,14 +60,13 @@ export async function POST(req: NextRequest) {
         body = {
           model,
           max_tokens: 4096,
-          messages: enhancedMessages.filter((m: any) => m.role !== "system"), // Use enhanced messages
+          messages: enhancedMessages.filter((m: any) => m.role !== "system"),
           stream: true,
         }
         break
 
       case "gemini":
         const geminiMessages = enhancedMessages.map((m: any) => ({
-          // Use enhanced messages
           role: m.role === "assistant" ? "model" : "user",
           parts: [{ text: m.content }],
         }))
@@ -126,7 +94,7 @@ export async function POST(req: NextRequest) {
       return new Response(`API Error: ${response.statusText}`, { status: response.status })
     }
 
-    // Create a transform stream to save the complete response
+    // Create a transform stream to handle memory storage
     let completeResponse = ""
     const transformStream = new TransformStream({
       transform(chunk, controller) {
@@ -134,7 +102,6 @@ export async function POST(req: NextRequest) {
 
         // Parse streaming response based on provider
         if (provider === "anthropic") {
-          // Handle Anthropic's streaming format
           const lines = text.split("\n")
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -149,7 +116,6 @@ export async function POST(req: NextRequest) {
             }
           }
         } else if (provider === "gemini") {
-          // Handle Gemini's streaming format
           const lines = text.split("\n")
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -164,7 +130,6 @@ export async function POST(req: NextRequest) {
             }
           }
         } else {
-          // Handle OpenAI/Groq format
           const lines = text.split("\n")
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -185,19 +150,10 @@ export async function POST(req: NextRequest) {
         controller.enqueue(chunk)
       },
       async flush() {
-        // Save complete response to database when stream ends
-        if (conversationId && completeResponse) {
-          await addMessage({
-            conversation_id: conversationId,
-            role: "assistant",
-            content: completeResponse,
-            metadata: { provider, model },
-          })
-
-          if (memoryService.isEnabled()) {
-            const conversationMessages = [...messages, { role: "assistant", content: completeResponse }]
-            await memoryService.storeConversationMemory(conversationMessages, user.id, conversationId)
-          }
+        // Store memory using conversationId as identifier
+        if (memoryService.isEnabled() && conversationId && completeResponse) {
+          const conversationMessages = [...messages, { role: "assistant", content: completeResponse }]
+          await memoryService.storeConversationMemory(conversationMessages, conversationId, conversationId)
         }
       },
     })

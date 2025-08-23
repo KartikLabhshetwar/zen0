@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Eye, EyeOff, Check, X, Brain } from "lucide-react"
+import { Eye, EyeOff, Check, X, Edit2, Save, Anvil as Cancel } from "lucide-react"
 
 interface APIKey {
   provider: string
@@ -24,6 +24,44 @@ interface Provider {
   keyPrefix: string
   description: string
   icon?: React.ReactNode
+}
+
+const fetchGroqModels = async (apiKey: string): Promise<string[]> => {
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch models")
+    }
+
+    const data = await response.json()
+    // Filter out audio models (whisper) and guard models, keep only text generation models
+    return data.data
+      .filter(
+        (model: any) =>
+          model.active &&
+          !model.id.includes("whisper") &&
+          !model.id.includes("guard") &&
+          !model.id.includes("distil-whisper"),
+      )
+      .map((model: any) => model.id)
+      .sort()
+  } catch (error) {
+    console.error("Error fetching Groq models:", error)
+    // Fallback to static models if API fails
+    return [
+      "llama-3.1-8b-instant",
+      "llama-3.3-70b-versatile",
+      "deepseek-r1-distill-llama-70b",
+      "meta-llama/llama-4-maverick-17b-128e-instruct",
+      "compound-beta",
+    ]
+  }
 }
 
 const providers: Provider[] = [
@@ -44,17 +82,9 @@ const providers: Provider[] = [
   {
     id: "groq",
     name: "Groq",
-    models: [
-      "llama-3.1-70b-versatile",
-      "llama-3.1-8b-instant",
-      "llama3-70b-8192",
-      "llama3-8b-8192",
-      "mixtral-8x7b-32768",
-      "gemma2-9b-it",
-      "gemma-7b-it",
-    ],
+    models: [], // Will be populated dynamically
     keyPrefix: "gsk_",
-    description: "Fast inference with Llama, Mixtral, and Gemma",
+    description: "Fast inference with Llama, OpenAI, DeepSeek, and more",
   },
   {
     id: "gemini",
@@ -62,14 +92,6 @@ const providers: Provider[] = [
     models: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"],
     keyPrefix: "AIza",
     description: "Gemini models from Google",
-  },
-  {
-    id: "mem0",
-    name: "Mem0",
-    models: ["memory-service"], // Special case - not really a model
-    keyPrefix: "m0-",
-    description: "Long-term memory and context awareness",
-    icon: <Brain className="w-4 h-4" />,
   },
 ]
 
@@ -80,6 +102,12 @@ export function BYOKSetup() {
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [showKey, setShowKey] = useState<boolean>(false)
   const [validating, setValidating] = useState<boolean>(false)
+  const [editingProvider, setEditingProvider] = useState<string>("")
+  const [editKey, setEditKey] = useState<string>("")
+  const [editModel, setEditModel] = useState<string>("")
+  const [showEditKey, setShowEditKey] = useState<boolean>(false)
+  const [groqModels, setGroqModels] = useState<string[]>([])
+  const [loadingGroqModels, setLoadingGroqModels] = useState<boolean>(false)
 
   // Load saved API keys from localStorage
   useEffect(() => {
@@ -89,6 +117,16 @@ export function BYOKSetup() {
     }
   }, [])
 
+  useEffect(() => {
+    if (selectedProvider === "groq" && apiKey && apiKey.startsWith("gsk_")) {
+      setLoadingGroqModels(true)
+      fetchGroqModels(apiKey).then((models) => {
+        setGroqModels(models)
+        setLoadingGroqModels(false)
+      })
+    }
+  }, [selectedProvider, apiKey])
+
   // Save API keys to localStorage
   const saveApiKeys = (keys: APIKey[]) => {
     localStorage.setItem("zen0-api-keys", JSON.stringify(keys))
@@ -96,12 +134,16 @@ export function BYOKSetup() {
   }
 
   const validateApiKey = async (provider: string, key: string): Promise<boolean> => {
-    // Basic validation - check key format
     const providerConfig = providers.find((p) => p.id === provider)
     if (!providerConfig) return false
 
-    if (provider === "mem0") {
-      return key.startsWith("m0-") && key.length > 10
+    if (provider === "groq") {
+      try {
+        const models = await fetchGroqModels(key)
+        return models.length > 0
+      } catch {
+        return false
+      }
     }
 
     return key.startsWith(providerConfig.keyPrefix) && key.length > 10
@@ -110,7 +152,7 @@ export function BYOKSetup() {
   const handleAddKey = async () => {
     if (!selectedProvider || !apiKey) return
 
-    if (selectedProvider !== "mem0" && !selectedModel) return
+    if (!selectedModel) return
 
     setValidating(true)
 
@@ -121,7 +163,7 @@ export function BYOKSetup() {
         const newKey: APIKey = {
           provider: selectedProvider,
           key: apiKey,
-          model: selectedProvider === "mem0" ? "memory-service" : selectedModel,
+          model: selectedModel,
         }
 
         // Remove existing key for this provider if it exists
@@ -145,59 +187,189 @@ export function BYOKSetup() {
     saveApiKeys(updatedKeys)
   }
 
+  const handleEditKey = (provider: string) => {
+    const existingKey = apiKeys.find((k) => k.provider === provider)
+    if (existingKey) {
+      setEditingProvider(provider)
+      setEditKey(existingKey.key)
+      setEditModel(existingKey.model || "")
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingProvider || !editKey || !editModel) return
+
+    setValidating(true)
+
+    try {
+      const isValid = await validateApiKey(editingProvider, editKey)
+
+      if (isValid) {
+        const updatedKeys = apiKeys.map((k) =>
+          k.provider === editingProvider ? { ...k, key: editKey, model: editModel } : k,
+        )
+
+        saveApiKeys(updatedKeys)
+
+        // Reset edit state
+        setEditingProvider("")
+        setEditKey("")
+        setEditModel("")
+        setShowEditKey(false)
+      }
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingProvider("")
+    setEditKey("")
+    setEditModel("")
+    setShowEditKey(false)
+  }
+
   const getProviderStatus = (providerId: string) => {
     return apiKeys.find((k) => k.provider === providerId)
+  }
+
+  const getCurrentModels = (providerId: string) => {
+    if (providerId === "groq") {
+      return groqModels.length > 0 ? groqModels : providers.find((p) => p.id === providerId)?.models || []
+    }
+    return providers.find((p) => p.id === providerId)?.models || []
   }
 
   const selectedProviderConfig = providers.find((p) => p.id === selectedProvider)
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="text-left">
         <h2 className="text-3xl font-light mb-2">API Configuration</h2>
         <p className="text-gray-600">Add your API keys to start chatting with different AI models</p>
       </div>
 
       {/* Current API Keys */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {providers.map((provider) => {
           const status = getProviderStatus(provider.id)
+          const isEditing = editingProvider === provider.id
+          const currentModels = getCurrentModels(provider.id)
+
           return (
             <Card key={provider.id} className="relative">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 p-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     {provider.icon}
-                    <CardTitle className="text-lg">{provider.name}</CardTitle>
+                    <CardTitle className="text-lg truncate">{provider.name}</CardTitle>
                   </div>
                   {status ? (
-                    <Badge variant="default" className="bg-green-100 text-green-800">
+                    <Badge variant="default" className="bg-green-100 text-green-800 text-xs flex-shrink-0">
                       <Check className="w-3 h-3 mr-1" />
                       Configured
                     </Badge>
                   ) : (
-                    <Badge variant="secondary">
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">
                       <X className="w-3 h-3 mr-1" />
                       Not Set
                     </Badge>
                   )}
                 </div>
-                <CardDescription>{provider.description}</CardDescription>
+                <CardDescription className="text-sm">{provider.description}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 pt-0">
                 {status ? (
                   <div className="space-y-2">
-                    {provider.id !== "mem0" && (
-                      <p className="text-sm text-gray-600">
-                        Model: <span className="font-medium">{status.model}</span>
-                      </p>
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-model-${provider.id}`}>Model</Label>
+                          <Select value={editModel} onValueChange={setEditModel}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a model" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {currentModels.map((model) => (
+                                <SelectItem key={model} value={model}>
+                                  <span className="break-all">{model}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-key-${provider.id}`}>API Key</Label>
+                          <div className="relative">
+                            <Input
+                              id={`edit-key-${provider.id}`}
+                              type={showEditKey ? "text" : "password"}
+                              value={editKey}
+                              onChange={(e) => setEditKey(e.target.value)}
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => setShowEditKey(!showEditKey)}
+                            >
+                              {showEditKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleSaveEdit}
+                            disabled={validating}
+                            className="flex-1"
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            {validating ? "Saving..." : "Save"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancelEdit}
+                            className="flex-1 bg-transparent"
+                          >
+                            <Cancel className="w-3 h-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-600">
+                          Model: <span className="font-medium break-all">{status.model}</span>
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Key: <span className="font-mono">{status.key.slice(0, 8)}...</span>
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditKey(provider.id)}
+                            className="flex-1"
+                          >
+                            <Edit2 className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveKey(provider.id)}
+                            className="flex-1"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </>
                     )}
-                    <p className="text-sm text-gray-600">
-                      Key: <span className="font-mono">{status.key.slice(0, 8)}...</span>
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => handleRemoveKey(provider.id)} className="w-full">
-                      Remove Key
-                    </Button>
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500">No API key configured</p>
@@ -210,11 +382,11 @@ export function BYOKSetup() {
 
       {/* Add New API Key */}
       <Card>
-        <CardHeader>
-          <CardTitle>Add New API Key</CardTitle>
+        <CardHeader className="p-6">
+          <CardTitle className="text-xl">Add New API Key</CardTitle>
           <CardDescription>Configure a new AI provider to expand your model options</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-6 pt-0">
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
             <Select value={selectedProvider} onValueChange={setSelectedProvider}>
@@ -239,16 +411,23 @@ export function BYOKSetup() {
               <Label htmlFor="model">Model</Label>
               <Select value={selectedModel} onValueChange={setSelectedModel}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a model" />
+                  <SelectValue
+                    placeholder={
+                      selectedProvider === "groq" && loadingGroqModels ? "Loading models..." : "Select a model"
+                    }
+                  />
                 </SelectTrigger>
-                <SelectContent>
-                  {selectedProviderConfig.models.map((model) => (
+                <SelectContent className="max-h-60">
+                  {getCurrentModels(selectedProvider).map((model) => (
                     <SelectItem key={model} value={model}>
-                      {model}
+                      <span className="break-all">{model}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedProvider === "groq" && loadingGroqModels && (
+                <p className="text-xs text-gray-500">Fetching latest models from Groq API...</p>
+              )}
             </div>
           )}
 
@@ -279,7 +458,7 @@ export function BYOKSetup() {
 
           <Button
             onClick={handleAddKey}
-            disabled={!selectedProvider || !apiKey || (selectedProvider !== "mem0" && !selectedModel) || validating}
+            disabled={!selectedProvider || !apiKey || !selectedModel || validating}
             className="w-full"
           >
             {validating ? "Validating..." : "Add API Key"}

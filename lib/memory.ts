@@ -203,13 +203,17 @@ Current user query: ${userQuery}`
 // Singleton instance
 let memoryService: MemoryService | null = null
 
-export function getMemoryService(apiKey?: string): MemoryService {
+export function getMemoryService(): MemoryService {
   if (!memoryService) {
+    const apiKey = process.env.MEM0_API_KEY
     memoryService = new MemoryService(apiKey)
   }
   return memoryService
 }
 
-export function initializeMemoryService(apiKey: string): void {
-  memoryService = new MemoryService(apiKey)
+export function initializeMemoryService(): void {
+  const apiKey = process.env.MEM0_API_KEY
+  if (apiKey) {
+    memoryService = new MemoryService(apiKey)
+  }
 }
