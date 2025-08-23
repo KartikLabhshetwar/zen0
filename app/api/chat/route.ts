@@ -2,74 +2,19 @@ import type { NextRequest } from "next/server"
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, provider, model, apiKey } = await req.json()
+    const { messages, model, apiKey } = await req.json()
 
-    // Prepare API call based on provider
-    let apiUrl: string
-    let headers: Record<string, string>
-    let body: any
-
-    switch (provider) {
-      case "groq":
-        apiUrl = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        }
-        body = {
-          model,
-          messages,
-          stream: true,
-        }
-        break
-
-      case "openai":
-        apiUrl = "https://api.openai.com/v1/chat/completions"
-        headers = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        }
-        body = {
-          model,
-          messages,
-          stream: true,
-        }
-        break
-
-      case "anthropic":
-        apiUrl = "https://api.anthropic.com/v1/messages"
-        headers = {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        }
-        body = {
-          model,
-          max_tokens: 4096,
-          messages: messages.filter((m: any) => m.role !== "system"),
-          stream: true,
-        }
-        break
-
-      case "gemini":
-        const geminiMessages = messages.map((m: any) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }))
-        apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`
-        headers = {
-          "Content-Type": "application/json",
-        }
-        body = {
-          contents: geminiMessages,
-        }
-        break
-
-      default:
-        return new Response("Invalid provider", { status: 400 })
+    const apiUrl = "https://api.groq.com/openai/v1/chat/completions"
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    }
+    const body = {
+      model,
+      messages,
+      stream: true,
     }
 
-    // Make API call
     const response = await fetch(apiUrl, {
       method: "POST",
       headers,
@@ -77,7 +22,22 @@ export async function POST(req: NextRequest) {
     })
 
     if (!response.ok) {
-      return new Response(`API Error: ${response.statusText}`, { status: response.status })
+      let errorMessage = `API Error: ${response.statusText}`
+      try {
+        const errorData = await response.json()
+        if (errorData.error?.message) {
+          errorMessage = `API Error: ${errorData.error.message}`
+        } else if (errorData.message) {
+          errorMessage = `API Error: ${errorData.message}`
+        }
+      } catch {
+        // If we can't parse the error, use the status text
+      }
+      
+      return new Response(errorMessage, { 
+        status: response.status,
+        headers: { "Content-Type": "text/plain" }
+      })
     }
 
     return new Response(response.body, {

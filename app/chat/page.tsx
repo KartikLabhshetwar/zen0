@@ -41,9 +41,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
-  const [modelPreferences, setModelPreferences] = useState<Record<string, string>>({})
-  const [selectedProvider, setSelectedProvider] = useState<string>("")
+  const [apiKey, setApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
 
@@ -84,12 +82,11 @@ export default function ChatPage() {
 
   const loadLocalSettings = () => {
     const settings = localStorageService.getSettings()
-    setApiKeys(settings.api_keys)
-    setSelectedProvider(settings.default_provider)
-    setSelectedModel(settings.default_model)
+    setApiKey(settings.api_keys.groq || "")
+    setSelectedModel(settings.default_model || "")
     setMemoryEnabled(settings.memory_enabled)
 
-    if (Object.keys(settings.api_keys).length === 0) {
+    if (!settings.api_keys.groq) {
       setShowApiSetup(true)
     }
   }
@@ -130,17 +127,15 @@ export default function ChatPage() {
   }
 
   const createNewConversation = () => {
-    if (!apiKeys[selectedProvider]) {
+    if (!apiKey) {
       setShowApiSetup(true)
       return
     }
 
-    const modelToUse = modelPreferences[selectedProvider] || selectedModel
-
     const newConversation = localStorageService.createConversation({
       title: "New Chat",
-      provider: selectedProvider,
-      model: modelToUse,
+      provider: "groq",
+      model: selectedModel,
     })
 
     setConversations([newConversation, ...conversations])
@@ -150,7 +145,7 @@ export default function ChatPage() {
 
   const sendMessage = async () => {
     if (!input.trim() || isStreaming || !currentConversation) return
-    if (!apiKeys[selectedProvider]) {
+    if (!apiKey) {
       setShowApiSetup(true)
       return
     }
@@ -172,14 +167,14 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: newMessages,
-          provider: currentConversation.provider,
           model: currentConversation.model,
-          apiKey: apiKeys[currentConversation.provider],
+          apiKey: apiKey,
         }),
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
       }
 
       const reader = response.body?.getReader()
@@ -201,6 +196,7 @@ export default function ChatPage() {
             try {
               const parsed = JSON.parse(data)
               const content = parsed.choices?.[0]?.delta?.content
+              
               if (content) {
                 completeMessage += content
                 setStreamingMessage(completeMessage)
@@ -272,9 +268,8 @@ export default function ChatPage() {
       setConversations([])
       setCurrentConversation(null)
       setMessages([])
-      setApiKeys({})
-      setSelectedProvider("")
-      setSelectedModel("")
+      setApiKey("")
+      setSelectedModel("llama-3.1-8b-instant")
       setMemoryEnabled(false)
       toast.success("All data cleared")
     }
@@ -298,21 +293,19 @@ export default function ChatPage() {
                 const modelMap: Record<string, string> = {}
 
                 parsedKeys.forEach((key: any) => {
-                  keyMap[key.provider] = key.key
-                  if (key.model) {
-                    modelMap[key.provider] = key.model
+                  if (key.provider === "groq") {
+                    keyMap[key.provider] = key.key
+                    if (key.model) {
+                      modelMap[key.provider] = key.model
+                    }
                   }
                 })
 
-                setApiKeys(keyMap)
-                setModelPreferences(modelMap)
+                setApiKey(keyMap.groq || "")
+                setSelectedModel(modelMap.groq || "llama-3.1-8b-instant")
                 setMemoryEnabled(!!keyMap.mem0)
 
-                const availableProviders = Object.keys(keyMap)
-                if (availableProviders.length > 0) {
-                  const defaultProvider = availableProviders.includes("groq") ? "groq" : availableProviders[0]
-                  setSelectedProvider(defaultProvider)
-                  setSelectedModel(modelMap[defaultProvider] || "llama-3.1-8b-instant")
+                if (keyMap.groq) {
                   setShowApiSetup(false)
                 }
               }
@@ -365,7 +358,7 @@ export default function ChatPage() {
                     {conv.title}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {conv.provider} • {conv.model}
+                    {conv.model}
                   </div>
                 </div>
               </Button>
@@ -437,7 +430,7 @@ export default function ChatPage() {
                   <div className="min-w-0">
                     <h1 className="font-semibold truncate">{currentConversation.title}</h1>
                     <p className="text-sm text-muted-foreground truncate">
-                      {currentConversation.provider} • {currentConversation.model}
+                      {currentConversation.model}
                     </p>
                   </div>
                 </div>

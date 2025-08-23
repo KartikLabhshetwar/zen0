@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Eye, EyeOff, Check, X, Edit2, Save, Anvil as Cancel } from "lucide-react"
+import { GroqModelSelector } from "@/components/ui/groq-model-selector"
 
 interface APIKey {
   provider: string
@@ -26,68 +26,7 @@ interface Provider {
   icon?: React.ReactNode
 }
 
-const fetchGroqModels = async (apiKey: string): Promise<string[]> => {
-  try {
-    console.log("[v0] Fetching Groq models with API key")
-    const response = await fetch("https://api.groq.com/openai/v1/models", {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (!response.ok) {
-      console.error("[v0] Groq API response not ok:", response.status, response.statusText)
-      throw new Error(`Failed to fetch models: ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log("[v0] Groq API response:", data)
-
-    const models =
-      data.data
-        ?.filter(
-          (model: any) =>
-            model.active &&
-            !model.id.includes("whisper") &&
-            !model.id.includes("guard") &&
-            !model.id.includes("distil-whisper") &&
-            !model.id.includes("tts"),
-        )
-        ?.map((model: any) => model.id)
-        ?.sort() || []
-
-    console.log("[v0] Filtered Groq models:", models)
-    return models.length > 0
-      ? models
-      : ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b"]
-  } catch (error) {
-    console.error("[v0] Error fetching Groq models:", error)
-    return [
-      "llama-3.1-8b-instant",
-      "llama-3.3-70b-versatile",
-      "deepseek-r1-distill-llama-70b",
-      "meta-llama/llama-4-maverick-17b-128e-instruct",
-      "compound-beta",
-    ]
-  }
-}
-
 const providers: Provider[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-    keyPrefix: "sk-",
-    description: "GPT models from OpenAI",
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    models: ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
-    keyPrefix: "sk-ant-",
-    description: "Claude models from Anthropic",
-  },
   {
     id: "groq",
     name: "Groq",
@@ -95,18 +34,10 @@ const providers: Provider[] = [
     keyPrefix: "gsk_",
     description: "Fast inference with Llama, OpenAI, DeepSeek, and more",
   },
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    models: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"],
-    keyPrefix: "AIza",
-    description: "Gemini models from Google",
-  },
 ]
 
 export function BYOKSetup() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
-  const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [apiKey, setApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [showKey, setShowKey] = useState<boolean>(false)
@@ -115,8 +46,6 @@ export function BYOKSetup() {
   const [editKey, setEditKey] = useState<string>("")
   const [editModel, setEditModel] = useState<string>("")
   const [showEditKey, setShowEditKey] = useState<boolean>(false)
-  const [groqModels, setGroqModels] = useState<string[]>([])
-  const [loadingGroqModels, setLoadingGroqModels] = useState<boolean>(false)
 
   // Load saved API keys from localStorage
   useEffect(() => {
@@ -125,32 +54,6 @@ export function BYOKSetup() {
       setApiKeys(JSON.parse(saved))
     }
   }, [])
-
-  useEffect(() => {
-    if (selectedProvider === "groq") {
-      setLoadingGroqModels(true)
-      // Use a temporary API key or existing one to fetch models
-      const existingGroqKey = apiKeys.find((k) => k.provider === "groq")?.key
-      const keyToUse = apiKey && apiKey.startsWith("gsk_") ? apiKey : existingGroqKey
-
-      if (keyToUse) {
-        fetchGroqModels(keyToUse)
-          .then((models) => {
-            console.log("[v0] Loaded Groq models:", models)
-            setGroqModels(models)
-            setLoadingGroqModels(false)
-          })
-          .catch((error) => {
-            console.error("[v0] Failed to load Groq models:", error)
-            setLoadingGroqModels(false)
-          })
-      } else {
-        // Load fallback models if no API key available
-        setGroqModels(["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b"])
-        setLoadingGroqModels(false)
-      }
-    }
-  }, [selectedProvider, apiKey, apiKeys])
 
   // Save API keys to localStorage
   const saveApiKeys = (keys: APIKey[]) => {
@@ -162,49 +65,51 @@ export function BYOKSetup() {
     const providerConfig = providers.find((p) => p.id === provider)
     if (!providerConfig) return false
 
-    if (provider === "groq") {
-      try {
-        console.log("[v0] Validating Groq API key")
-        const models = await fetchGroqModels(key)
-        const isValid = models.length > 0
-        console.log("[v0] Groq API key validation result:", isValid)
-        return isValid
-      } catch (error) {
-        console.error("[v0] Groq API key validation failed:", error)
+    // Only Groq is supported now
+    try {
+      console.log("[v0] Validating Groq API key")
+      const response = await fetch("/api/groq/models", {
+        headers: {
+          Authorization: `Bearer ${key}`,
+        },
+      })
+      
+      if (!response.ok) {
         return false
       }
+      
+      const models = await response.json()
+      const isValid = Array.isArray(models) && models.length > 0
+      console.log("[v0] Groq API key validation result:", isValid)
+      return isValid
+    } catch (error) {
+      console.error("[v0] Groq API key validation failed:", error)
+      return false
     }
-
-    const isValidFormat = key.startsWith(providerConfig.keyPrefix) && key.length > 10
-    console.log("[v0] API key format validation for", provider, ":", isValidFormat)
-    return isValidFormat
   }
 
   const handleAddKey = async () => {
-    if (!selectedProvider || !apiKey) return
-
-    if (!selectedModel) return
+    if (!apiKey || !selectedModel) return
 
     setValidating(true)
 
     try {
-      const isValid = await validateApiKey(selectedProvider, apiKey)
+      const isValid = await validateApiKey("groq", apiKey)
 
       if (isValid) {
         const newKey: APIKey = {
-          provider: selectedProvider,
+          provider: "groq",
           key: apiKey,
           model: selectedModel,
         }
 
         // Remove existing key for this provider if it exists
-        const updatedKeys = apiKeys.filter((k) => k.provider !== selectedProvider)
+        const updatedKeys = apiKeys.filter((k) => k.provider !== "groq")
         updatedKeys.push(newKey)
 
         saveApiKeys(updatedKeys)
 
         // Reset form
-        setSelectedProvider("")
         setApiKey("")
         setSelectedModel("")
       }
@@ -264,28 +169,19 @@ export function BYOKSetup() {
     return apiKeys.find((k) => k.provider === providerId)
   }
 
-  const getCurrentModels = (providerId: string) => {
-    if (providerId === "groq") {
-      return groqModels.length > 0 ? groqModels : providers.find((p) => p.id === providerId)?.models || []
-    }
-    return providers.find((p) => p.id === providerId)?.models || []
-  }
-
-  const selectedProviderConfig = providers.find((p) => p.id === selectedProvider)
-
   return (
     <div className="space-y-6">
       <div className="text-left">
-        <h2 className="text-3xl font-light mb-2">API Configuration</h2>
-        <p className="text-gray-600">Add your API keys to start chatting with different AI models</p>
+        <h2 className="text-3xl font-light mb-2">Groq API Configuration</h2>
+        <p className="text-gray-600">Configure your Groq API key to start chatting with fast AI models</p>
       </div>
 
       {/* Current API Keys */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="max-w-md">
         {providers.map((provider) => {
           const status = getProviderStatus(provider.id)
           const isEditing = editingProvider === provider.id
-          const currentModels = getCurrentModels(provider.id)
+          const currentModel = status?.model || "No model selected"
 
           return (
             <Card key={provider.id} className="relative">
@@ -316,18 +212,12 @@ export function BYOKSetup() {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label htmlFor={`edit-model-${provider.id}`}>Model</Label>
-                          <Select value={editModel} onValueChange={setEditModel}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a model" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-60">
-                              {currentModels.map((model) => (
-                                <SelectItem key={model} value={model}>
-                                  <span className="break-all">{model}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <GroqModelSelector
+                            value={editModel}
+                            onValueChange={setEditModel}
+                            apiKey={editKey}
+                            placeholder="Select a model"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor={`edit-key-${provider.id}`}>API Key</Label>
@@ -375,7 +265,7 @@ export function BYOKSetup() {
                     ) : (
                       <>
                         <p className="text-sm text-gray-600">
-                          Model: <span className="font-medium break-all">{status.model}</span>
+                          Model: <span className="font-medium break-all">{currentModel}</span>
                         </p>
                         <p className="text-sm text-gray-600">
                           Key: <span className="font-mono">{status.key.slice(0, 8)}...</span>
@@ -414,53 +304,22 @@ export function BYOKSetup() {
       {/* Add New API Key */}
       <Card>
         <CardHeader className="p-6">
-          <CardTitle className="text-xl">Add New API Key</CardTitle>
-          <CardDescription>Configure a new AI provider to expand your model options</CardDescription>
+          <CardTitle className="text-xl">Add Groq API Key</CardTitle>
+          <CardDescription>Configure your Groq API key to start chatting</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 p-6 pt-0">
           <div className="space-y-2">
-            <Label htmlFor="provider">Provider</Label>
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id}>
-                    <div className="flex items-center gap-2">
-                      {provider.icon}
-                      {provider.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="model">Model</Label>
+            <GroqModelSelector
+              value={selectedModel}
+              onValueChange={setSelectedModel}
+              apiKey={apiKey}
+              placeholder="Select a model"
+            />
+            {/* loadingGroqModels && ( // This line is no longer needed */}
+            {/*   <p className="text-xs text-gray-500">Fetching latest models from Groq API...</p> */}
+            {/* ) */}
           </div>
-
-          {selectedProviderConfig && selectedProvider !== "mem0" && (
-            <div className="space-y-2">
-              <Label htmlFor="model">Model</Label>
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      selectedProvider === "groq" && loadingGroqModels ? "Loading models..." : "Select a model"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {getCurrentModels(selectedProvider).map((model) => (
-                    <SelectItem key={model} value={model}>
-                      <span className="break-all">{model}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedProvider === "groq" && loadingGroqModels && (
-                <p className="text-xs text-gray-500">Fetching latest models from Groq API...</p>
-              )}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="apikey">API Key</Label>
@@ -470,9 +329,7 @@ export function BYOKSetup() {
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder={
-                  selectedProviderConfig ? `Starts with ${selectedProviderConfig.keyPrefix}` : "Enter your API key"
-                }
+                placeholder="Starts with gsk_"
                 className="pr-10"
               />
               <Button
@@ -489,10 +346,10 @@ export function BYOKSetup() {
 
           <Button
             onClick={handleAddKey}
-            disabled={!selectedProvider || !apiKey || !selectedModel || validating}
+            disabled={!apiKey || !selectedModel || validating}
             className="w-full"
           >
-            {validating ? "Validating..." : "Add API Key"}
+            {validating ? "Validating..." : "Add Groq API Key"}
           </Button>
         </CardContent>
       </Card>
