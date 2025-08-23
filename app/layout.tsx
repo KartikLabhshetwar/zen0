@@ -4,6 +4,7 @@ import "./globals.css"
 import { Header } from "@/components/header"
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000"),
   title: "zen0 - AI Chat with Memory",
   description:
     "AI conversations with perfect memory. Connect your preferred models and experience intelligent dialogue that remembers every detail.",
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 export default function RootLayout({
