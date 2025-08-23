@@ -1,10 +1,9 @@
-import Layout from "./layout"
 import ChatInterface from "./chat-interface"
 
 export default function Page() {
   return (
-    <Layout>
+    <div className="min-h-screen bg-background">
       <ChatInterface />
-    </Layout>
+    </div>
   )
 }

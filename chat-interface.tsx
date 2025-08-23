@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, Download, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Copy, Download, ThumbsUp, ThumbsDown, Send } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface Message {
@@ -34,44 +34,46 @@ export default function ChatInterface() {
   ])
 
   return (
-    <div className="flex-1 flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+    <div className="flex-1 flex flex-col h-screen max-w-4xl mx-auto w-full">
+      <ScrollArea className="flex-1 p-4 md:p-6">
+        <div className="space-y-4 md:space-y-6">
           {messages.map((message, index) => (
             <div
               key={index}
               className={cn(
-                "flex gap-2 max-w-[80%]",
-                message.role === "user" && "ml-auto"
+                "flex gap-2 max-w-[90%] md:max-w-[80%]",
+                message.role === "user" && "ml-auto flex-row-reverse"
               )}
             >
               {message.role === "agent" && (
-                <div className="h-8 w-8 rounded-full bg-primary flex-shrink-0" />
+                <div className="h-8 w-8 rounded-full bg-primary flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
+                  A
+                </div>
               )}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">
-                    {message.role === "agent" ? "GenerativeAgent" : "G5"}
+                    {message.role === "agent" ? "GenerativeAgent" : "You"}
                   </span>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {message.timestamp}
                   </span>
                 </div>
-                <div className="p-3 bg-muted/50 rounded-lg">
+                <div className="p-3 md:p-4 bg-muted/50 rounded-2xl md:rounded-lg">
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                 </div>
                 {message.role === "agent" && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <div className="flex items-center gap-1 md:gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
                       <Copy className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
                       <ThumbsUp className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
                       <ThumbsDown className="h-4 w-4" />
                     </Button>
                   </div>
@@ -84,12 +86,14 @@ export default function ChatInterface() {
       <div className="p-4 border-t">
         <div className="flex gap-2">
           <Textarea
-            placeholder="Type a message as a customer"
+            placeholder="Type a message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="min-h-[44px] max-h-32"
+            className="min-h-[44px] max-h-32 resize-none"
           />
-          <Button className="px-8">Send</Button>
+          <Button size="icon" className="h-11 w-11 rounded-lg">
+            <Send className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

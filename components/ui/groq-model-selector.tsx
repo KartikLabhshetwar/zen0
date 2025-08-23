@@ -45,16 +45,16 @@ export function GroqModelSelector({
   }
 
   const getModelBadgeVariant = (contextWindow: number) => {
-    if (contextWindow >= 100000) return "default" // High capacity
-    if (contextWindow >= 50000) return "secondary" // Medium capacity
-    return "outline" // Low capacity
+    if (contextWindow >= 100000) return "default"
+    if (contextWindow >= 50000) return "secondary"
+    return "outline"
   }
 
   if (error) {
     return (
-      <div className={`space-y-2 ${className}`}>
+      <div className={`space-y-3 ${className}`}>
         <Select value={value} onValueChange={onValueChange}>
-          <SelectTrigger className="border-red-200 bg-red-50">
+          <SelectTrigger className="border-red-200 bg-red-50 h-10">
             <SelectValue placeholder="Error loading models" />
           </SelectTrigger>
         </Select>
@@ -64,7 +64,7 @@ export function GroqModelSelector({
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            className="w-full"
+            className="w-full h-9 rounded-full"
           >
             <RefreshCw className="w-3 h-3 mr-2" />
             Retry
@@ -75,49 +75,54 @@ export function GroqModelSelector({
   }
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <div className="flex items-center gap-2">
-        <Select value={value} onValueChange={onValueChange}>
-          <SelectTrigger>
-            <SelectValue placeholder={loading ? "Loading models..." : placeholder} />
-          </SelectTrigger>
-          <SelectContent className="max-h-80">
-            {models.map((model) => (
-              <SelectItem key={model.id} value={model.id}>
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="truncate font-medium">{model.id}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {model.owned_by}
-                    </Badge>
+    <div className={`space-y-3 ${className}`}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="flex-1 min-w-0 w-full">
+          <Select value={value} onValueChange={onValueChange}>
+            <SelectTrigger className="h-10 border-gray-200 focus:border-gray-400 focus:ring-gray-400 w-full">
+              <SelectValue placeholder={loading ? "Loading models..." : placeholder} />
+            </SelectTrigger>
+            <SelectContent className="max-h-80 w-[90vw] sm:w-[400px] max-w-[90vw]">
+              {models.map((model) => (
+                <SelectItem key={model.id} value={model.id} className="py-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2 sm:gap-3">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                      <span className="font-medium text-gray-900 truncate text-sm sm:text-base">{model.id}</span>
+                      <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-0">
+                        {model.owned_by}
+                      </Badge>
+                      <Badge 
+                        variant={getModelBadgeVariant(model.context_window)} 
+                        className="text-xs bg-blue-50 text-blue-700 border-0"
+                      >
+                        {formatContextWindow(model.context_window)}
+                      </Badge>
+                    </div>
                   </div>
-                  <Badge variant={getModelBadgeVariant(model.context_window)} className="text-xs">
-                    {formatContextWindow(model.context_window)}
-                  </Badge>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {showRefresh && (
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
             disabled={loading}
-            className="flex-shrink-0"
+            className="flex-shrink-0 h-10 w-10 p-0 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full self-center sm:self-auto"
           >
             {loading ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <RefreshCw className="w-3 h-3" />
+              <RefreshCw className="h-4 w-4" />
             )}
           </Button>
         )}
       </div>
       {loading && (
         <p className="text-xs text-gray-500 flex items-center gap-2">
-          <Loader2 className="w-3 h-3 animate-spin" />
+          <Loader2 className="h-3 w-3 animate-spin" />
           Fetching latest models from Groq API...
         </p>
       )}
