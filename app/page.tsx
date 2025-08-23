@@ -12,7 +12,7 @@ export default function LandingPage() {
           </h1>
           <p className="text-xl sm:text-2xl text-gray-600 max-w-2xl leading-relaxed mb-8 sm:mb-12 mx-auto animate-fade-in-up animation-delay-200">
             AI conversations with perfect memory and blazing fast responses. 
-            Experience the world's fastest LLMs powered by Groq's inference technology.
+            Experience the world's fastest LLMs powered by Groq's inference technology and enhanced with Mem0 AI Memory.
           </p>
           <div className="animate-fade-in-up animation-delay-400">
             <Button
@@ -90,9 +90,9 @@ export default function LandingPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-medium text-black mb-4">Persistent Memory</h3>
+              <h3 className="text-xl font-medium text-black mb-4">Mem0 AI Memory</h3>
               <p className="text-gray-600 leading-relaxed">
-                Every conversation builds upon the last. Our advanced memory system ensures context is never lost, creating truly intelligent dialogue.
+                Powered by Mem0's advanced AI memory system, every conversation builds upon the last with intelligent context retrieval and persistent learning across sessions.
               </p>
             </div>
 

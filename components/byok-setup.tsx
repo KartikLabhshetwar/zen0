@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Eye, EyeOff, Check, X, Edit2, Save, X as Cancel } from "lucide-react"
+import { Eye, EyeOff, Check, X, Edit2, Save, X as Cancel, Info } from "lucide-react"
 import { GroqModelSelector } from "@/components/ui/groq-model-selector"
 
 interface APIKey {
@@ -34,13 +34,22 @@ const providers: Provider[] = [
     keyPrefix: "gsk_",
     description: "Fast inference with Llama, OpenAI, DeepSeek, and more",
   },
+  {
+    id: "mem0",
+    name: "Mem0",
+    models: [],
+    keyPrefix: "m0-",
+    description: "Advanced memory system for persistent conversation context",
+  },
 ]
 
 export function BYOKSetup() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
-  const [apiKey, setApiKey] = useState<string>("")
+  const [groqApiKey, setGroqApiKey] = useState<string>("")
+  const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
-  const [showKey, setShowKey] = useState<boolean>(false)
+  const [showGroqKey, setShowGroqKey] = useState<boolean>(false)
+  const [showMem0Key, setShowMem0Key] = useState<boolean>(false)
   const [validating, setValidating] = useState<boolean>(false)
   const [editingProvider, setEditingProvider] = useState<string>("")
   const [editKey, setEditKey] = useState<string>("")
@@ -50,7 +59,18 @@ export function BYOKSetup() {
   useEffect(() => {
     const saved = localStorage.getItem("zen0-api-keys")
     if (saved) {
-      setApiKeys(JSON.parse(saved))
+      const parsedKeys = JSON.parse(saved)
+      setApiKeys(parsedKeys)
+      
+      const groqKey = parsedKeys.find((key: APIKey) => key.provider === "groq")
+      const mem0Key = parsedKeys.find((key: APIKey) => key.provider === "mem0")
+      
+      if (groqKey) {
+        setGroqApiKey(groqKey.key)
+      }
+      if (mem0Key) {
+        setMem0ApiKey(mem0Key.key)
+      }
     }
   }, [])
 
@@ -59,12 +79,9 @@ export function BYOKSetup() {
     setApiKeys(keys)
   }
 
-  const validateApiKey = async (provider: string, key: string): Promise<boolean> => {
-    const providerConfig = providers.find((p) => p.id === provider)
-    if (!providerConfig) return false
-
+  const validateGroqApiKey = async (key: string): Promise<boolean> => {
     try {
-      console.log("[v0] Validating Groq API key")
+      console.log("[zen0] Validating Groq API key")
       const response = await fetch("/api/groq/models", {
         headers: {
           Authorization: `Bearer ${key}`,
@@ -77,36 +94,74 @@ export function BYOKSetup() {
       
       const models = await response.json()
       const isValid = Array.isArray(models) && models.length > 0
-      console.log("[v0] Groq API key validation result:", isValid)
+      console.log("[zen0] Groq API key validation result:", isValid)
       return isValid
     } catch (error) {
-      console.error("[v0] Groq API key validation failed:", error)
+      console.error("[zen0] Groq API key validation failed:", error)
       return false
     }
   }
 
-  const handleAddKey = async () => {
-    if (!apiKey || !selectedModel) return
+  const validateMem0ApiKey = async (key: string): Promise<boolean> => {
+    try {
+      console.log("[zen0] Validating Mem0 API key")
+      // Simple validation - check if key has the right prefix
+      // In a real implementation, you might want to make an actual API call
+      const isValid = key.startsWith("m0-") && key.length > 10
+      console.log("[zen0] Mem0 API key validation result:", isValid)
+      return isValid
+    } catch (error) {
+      console.error("[zen0] Mem0 API key validation failed:", error)
+      return false
+    }
+  }
+
+  const handleAddGroqKey = async () => {
+    if (!groqApiKey || !selectedModel) return
 
     setValidating(true)
 
     try {
-      const isValid = await validateApiKey("groq", apiKey)
+      const isValid = await validateGroqApiKey(groqApiKey)
 
       if (isValid) {
         const newKey: APIKey = {
           provider: "groq",
-          key: apiKey,
+          key: groqApiKey,
           model: selectedModel,
         }
 
         const updatedKeys = apiKeys.filter((k) => k.provider !== "groq")
         updatedKeys.push(newKey)
-
         saveApiKeys(updatedKeys)
 
-        setApiKey("")
+        setGroqApiKey("")
         setSelectedModel("")
+      }
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  const handleAddMem0Key = async () => {
+    if (!mem0ApiKey) return
+
+    setValidating(true)
+
+    try {
+      const isValid = await validateMem0ApiKey(mem0ApiKey)
+
+      if (isValid) {
+        const newKey: APIKey = {
+          provider: "mem0",
+          key: mem0ApiKey,
+        }
+
+        const updatedKeys = apiKeys.filter((k) => k.provider !== "mem0")
+        updatedKeys.push(newKey)
+        saveApiKeys(updatedKeys)
+
+        setMem0ApiKey("")
       }
     } finally {
       setValidating(false)
@@ -116,6 +171,12 @@ export function BYOKSetup() {
   const handleRemoveKey = (provider: string) => {
     const updatedKeys = apiKeys.filter((k) => k.provider !== provider)
     saveApiKeys(updatedKeys)
+    
+    if (provider === "groq") {
+      setGroqApiKey("")
+    } else if (provider === "mem0") {
+      setMem0ApiKey("")
+    }
   }
 
   const handleEditKey = (provider: string) => {
@@ -128,16 +189,37 @@ export function BYOKSetup() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editingProvider || !editKey || !editModel) return
+    if (!editingProvider || !editKey) return
 
     setValidating(true)
 
     try {
-      const isValid = await validateApiKey(editingProvider, editKey)
+      let isValid = false
+      let updatedKey: APIKey | null = null
 
-      if (isValid) {
+      if (editingProvider === "groq") {
+        if (!editModel) return
+        isValid = await validateGroqApiKey(editKey)
+        if (isValid) {
+          updatedKey = {
+            provider: "groq",
+            key: editKey,
+            model: editModel,
+          }
+        }
+      } else if (editingProvider === "mem0") {
+        isValid = await validateMem0ApiKey(editKey)
+        if (isValid) {
+          updatedKey = {
+            provider: "mem0",
+            key: editKey,
+          }
+        }
+      }
+
+      if (isValid && updatedKey) {
         const updatedKeys = apiKeys.map((k) =>
-          k.provider === editingProvider ? { ...k, key: editKey, model: editModel } : k,
+          k.provider === editingProvider ? updatedKey! : k,
         )
 
         saveApiKeys(updatedKeys)
@@ -164,7 +246,8 @@ export function BYOKSetup() {
   }
 
   // Check if any provider has a configured API key
-  const hasConfiguredKey = providers.some(provider => getProviderStatus(provider.id))
+  const groqConfigured = getProviderStatus("groq")
+  const mem0Configured = getProviderStatus("mem0")
 
   return (
     <div className="max-w-4xl mx-auto space-y-10 sm:space-y-12 px-4 sm:px-6 py-8">
@@ -172,7 +255,7 @@ export function BYOKSetup() {
       <div className="text-center space-y-4">
         <h1 className="text-3xl sm:text-4xl font-light tracking-tight text-gray-900">API Key Setup</h1>
         <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-          Configure your API keys to start chatting with AI models
+          Configure your API keys to start chatting with AI models and enable memory features
         </p>
       </div>
 
@@ -215,20 +298,22 @@ export function BYOKSetup() {
                     <div className="space-y-6">
                       {isEditing ? (
                         <div className="space-y-6">
-                          <div className="space-y-4">
-                            <Label htmlFor={`edit-model-${provider.id}`} className="text-sm font-medium text-gray-700">
-                              Model
-                            </Label>
-                            <div className="w-full max-w-md mx-auto">
-                              <GroqModelSelector
-                                value={editModel}
-                                onValueChange={setEditModel}
-                                apiKey={editKey}
-                                placeholder="Select a model"
-                                className="w-full rounded-xl border-2 border-gray-300"
-                              />
+                          {provider.id === "groq" && (
+                            <div className="space-y-4">
+                              <Label htmlFor={`edit-model-${provider.id}`} className="text-sm font-medium text-gray-700">
+                                Model
+                              </Label>
+                              <div className="w-full max-w-md mx-auto">
+                                <GroqModelSelector
+                                  value={editModel}
+                                  onValueChange={setEditModel}
+                                  apiKey={editKey}
+                                  placeholder="Select a model"
+                                  className="w-full rounded-xl border-2 border-gray-300"
+                                />
+                              </div>
                             </div>
-                          </div>
+                          )}
                           <div className="space-y-4">
                             <Label htmlFor={`edit-key-${provider.id}`} className="text-sm font-medium text-gray-700">
                               API Key
@@ -277,10 +362,12 @@ export function BYOKSetup() {
                       ) : (
                         <div className="space-y-6">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div className="space-y-3 bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
-                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Model</p>
-                              <p className="text-sm text-gray-900 font-mono break-all">{currentModel}</p>
-                            </div>
+                            {provider.id === "groq" && (
+                              <div className="space-y-3 bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Model</p>
+                                <p className="text-sm text-gray-900 font-mono break-all">{currentModel}</p>
+                              </div>
+                            )}
                             <div className="space-y-3 bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
                               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">API Key</p>
                               <p className="text-sm text-gray-900 font-mono">••••••{status.key.slice(-4)}</p>
@@ -326,74 +413,152 @@ export function BYOKSetup() {
         </div>
       </div>
 
-      {/* Add New API Key - Only show if no keys are configured */}
-      {!hasConfiguredKey && (
+      {/* Add New API Keys - Separate sections for Groq and Mem0 */}
+      {(!groqConfigured || !mem0Configured) && (
         <div className="space-y-8 pb-10">
           <div className="text-center">
-            <h2 className="text-xl sm:text-2xl font-light text-gray-900">Add New API Key</h2>
-            <p className="text-gray-600 mt-2">Configure a new Groq API key to start chatting</p>
+            <h2 className="text-xl sm:text-2xl font-light text-gray-900">Add New API Keys</h2>
+            <p className="text-gray-600 mt-2">Configure your API keys to start chatting</p>
           </div>
 
-          <Card className="border-2 border-gray-300 shadow-none bg-white rounded-2xl max-w-3xl mx-auto overflow-hidden">
-            <CardHeader className="p-6 sm:p-8">
-              <CardTitle className="text-xl font-medium text-gray-900 text-center">Groq API Configuration</CardTitle>
-              <CardDescription className="text-gray-600 text-center mt-2">
-                Enter your Groq API key and select a model to begin
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6 sm:p-8 pt-0">
-              <div className="space-y-4">
-                <Label htmlFor="model" className="text-sm font-medium text-gray-700 text-center block">
-                  Model
-                </Label>
-                <div className="w-full max-w-md mx-auto">
-                  <GroqModelSelector
-                    value={selectedModel}
-                    onValueChange={setSelectedModel}
-                    apiKey={apiKey}
-                    placeholder="Select a model"
-                    className="w-full rounded-xl border-2 border-gray-300"
-                  />
+          {/* Groq Configuration */}
+          {!groqConfigured && (
+            <Card className="border-2 border-gray-300 shadow-none bg-white rounded-2xl max-w-3xl mx-auto overflow-hidden">
+              <CardHeader className="p-6 sm:p-8">
+                <CardTitle className="text-xl font-medium text-gray-900 text-center">Groq API Configuration</CardTitle>
+                <CardDescription className="text-gray-600 text-center mt-2">
+                  Enter your Groq API key and select a model to begin
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 p-6 sm:p-8 pt-0">
+                <div className="space-y-4">
+                  <Label htmlFor="model" className="text-sm font-medium text-gray-700 text-center block">
+                    Model
+                  </Label>
+                  <div className="w-full max-w-md mx-auto">
+                    <GroqModelSelector
+                      value={selectedModel}
+                      onValueChange={setSelectedModel}
+                      apiKey={groqApiKey}
+                      placeholder="Select a model"
+                      className="w-full rounded-xl border-2 border-gray-300"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <Label htmlFor="apikey" className="text-sm font-medium text-gray-700 text-center block">
-                  API Key
-                </Label>
-                <div className="relative max-w-md mx-auto">
-                  <Input
-                    id="apikey"
-                    type={showKey ? "text" : "password"}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Starts with gsk_"
-                    className="pr-12 h-12 border-2 border-gray-300 focus:border-gray-500 focus:ring-0 rounded-xl"
-                  />
+                <div className="space-y-4">
+                  <Label htmlFor="groq-apikey" className="text-sm font-medium text-gray-700 text-center block">
+                    Groq API Key
+                  </Label>
+                  <div className="relative max-w-md mx-auto">
+                    <Input
+                      id="groq-apikey"
+                      type={showGroqKey ? "text" : "password"}
+                      value={groqApiKey}
+                      onChange={(e) => setGroqApiKey(e.target.value)}
+                      placeholder="Starts with gsk_"
+                      className="pr-12 h-12 border-2 border-gray-300 focus:border-gray-500 focus:ring-0 rounded-xl"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0 hover:bg-gray-100 rounded-xl"
+                      onClick={() => setShowGroqKey(!showGroqKey)}
+                    >
+                      {showGroqKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">
+                    Get your API key from{" "}
+                    <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:underline font-medium">
+                      Groq Console
+                    </a>
+                  </p>
+                </div>
+
+                <div className="flex justify-center">
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0 hover:bg-gray-100 rounded-xl"
-                    onClick={() => setShowKey(!showKey)}
+                    onClick={handleAddGroqKey}
+                    disabled={!groqApiKey || !selectedModel || validating}
+                    className="h-12 px-8 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-xl"
                   >
-                    {showKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {validating ? "Validating..." : "Add Groq API Key"}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 text-center">Get your API key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:underline font-medium">Groq Console</a></p>
-              </div>
+              </CardContent>
+            </Card>
+          )}
 
-              <Button
-                onClick={handleAddKey}
-                disabled={!apiKey || !selectedModel || validating}
-                className="w-full max-w-md mx-auto h-12 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-xl"
-              >
-                {validating ? "Validating..." : "Add Groq API Key"}
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Mem0 Configuration */}
+          {!mem0Configured && (
+            <Card className="border-2 border-gray-300 shadow-none bg-white rounded-2xl max-w-3xl mx-auto overflow-hidden">
+              <CardHeader className="p-6 sm:p-8">
+                <CardTitle className="text-xl font-medium text-gray-900 text-center">Mem0 API Configuration</CardTitle>
+                <CardDescription className="text-gray-600 text-center mt-2">
+                  Enter your Mem0 API key to enable advanced memory features
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 p-6 sm:p-8 pt-0">
+                <div className="space-y-4">
+                  <Label htmlFor="mem0-apikey" className="text-sm font-medium text-gray-700 text-center block">
+                    Mem0 API Key
+                  </Label>
+                  <div className="relative max-w-md mx-auto">
+                    <Input
+                      id="mem0-apikey"
+                      type={showMem0Key ? "text" : "password"}
+                      value={mem0ApiKey}
+                      onChange={(e) => setMem0ApiKey(e.target.value)}
+                      placeholder="Starts with m0-"
+                      className="pr-12 h-12 border-2 border-gray-300 focus:border-gray-500 focus:ring-0 rounded-xl"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0 hover:bg-gray-100 rounded-xl"
+                      onClick={() => setShowMem0Key(!showMem0Key)}
+                    >
+                      {showMem0Key ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">
+                    Get your API key from{" "}
+                    <a href="https://app.mem0.ai/dashboard/api-keys" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:underline font-medium">
+                      Mem0 Dashboard
+                    </a>
+                  </p>
+                </div>
+
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleAddMem0Key}
+                    disabled={!mem0ApiKey || validating}
+                    className="h-12 px-8 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-xl"
+                  >
+                    {validating ? "Validating..." : "Add Mem0 API Key"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
+      
+      {/* Information Section */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 max-w-3xl mx-auto">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-medium text-blue-900 mb-2">How to get your API keys</h3>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• <span className="font-medium">Groq:</span> Visit <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline">https://console.groq.com/keys</a> to get your free API key</li>
+              <li>• <span className="font-medium">Mem0:</span> Visit <a href="https://app.mem0.ai/dashboard/api-keys" target="_blank" rel="noopener noreferrer" className="underline">https://app.mem0.ai/dashboard/api-keys</a> to get your API key</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

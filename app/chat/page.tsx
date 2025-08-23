@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { BYOKSetup } from "@/components/byok-setup"
 import { Markdown } from "@/components/ui/markdown"
 import { localStorageService, type Conversation, type Message } from "@/lib/local-storage"
+import { Mem0Service } from "@/lib/mem0-service"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -45,13 +46,41 @@ export default function ChatPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   const [apiKey, setApiKey] = useState<string>("")
+  const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
   const [files, setFiles] = useState<File[]>([])
 
+  // Mem0 service instance
+  const mem0Service = mem0ApiKey ? new Mem0Service(mem0ApiKey) : null
+
   useEffect(() => {
     loadLocalSettings()
-  }, [])
+    
+    // Cleanup function to process any pending Mem0 batch
+    return () => {
+      // Process any remaining Mem0 batch
+      if (memoryEnabled && mem0Service) {
+        mem0Service.processFinalBatch().catch(e => {
+          console.error("Error processing final Mem0 batch:", e);
+        });
+      }
+    };
+  }, [memoryEnabled, mem0Service])
+
+  // Show welcome message when Mem0 is first enabled
+  useEffect(() => {
+    if (mem0ApiKey && memoryEnabled) {
+      const hasSeenMem0Welcome = sessionStorage.getItem('mem0-welcome-shown');
+      if (!hasSeenMem0Welcome) {
+        toast.success("🎉 Mem0 AI Memory enabled! Your conversations will now be enhanced with intelligent memory.", {
+          duration: 5000,
+          description: "The AI will learn from your interactions and provide better, more contextual responses."
+        });
+        sessionStorage.setItem('mem0-welcome-shown', 'true');
+      }
+    }
+  }, [mem0ApiKey, memoryEnabled])
 
   useEffect(() => {
     fetchConversations()
@@ -104,21 +133,28 @@ export default function ChatPage() {
     setSelectedModel(settings.default_model || "")
     setMemoryEnabled(settings.memory_enabled)
 
-    // Check if API key exists in localStorage
+    // Check if API keys exist in localStorage
     const keys = localStorage.getItem("zen0-api-keys")
     if (keys) {
       const parsedKeys = JSON.parse(keys)
       const groqKey = parsedKeys.find((key: any) => key.provider === "groq")
+      const mem0Key = parsedKeys.find((key: any) => key.provider === "mem0")
+      
       if (groqKey && groqKey.key) {
         setApiKey(groqKey.key)
         setSelectedModel(groqKey.model || "llama-3.1-8b-instant")
-        // Don't automatically hide API setup - let users access it manually
-        // setShowApiSetup(false)
-        return
       }
+      
+      if (mem0Key && mem0Key.key) {
+        setMem0ApiKey(mem0Key.key)
+      }
+      
+      // Don't automatically hide API setup - let users access it manually
+      // setShowApiSetup(false)
+      return
     }
 
-    // Only show API setup if no key exists
+    // Only show API setup if no Groq key exists
     if (!settings.api_keys.groq) {
       setShowApiSetup(true)
     }
@@ -183,12 +219,40 @@ export default function ChatPage() {
       return
     }
 
+    const startTime = performance.now()
+
+    // Prepare messages for sending
+    let messagesToSend = [...messages];
+    
+    // Memory retrieval - only do this periodically and non-blocking
+    if (memoryEnabled && mem0Service && messages.length % 3 === 0) {
+      // Fire and forget memory retrieval - don't block the main flow
+      mem0Service.searchMemories(input, `zen0-user-${currentConversation.id}`).then(memories => {
+        if (memories && memories.length > 0) {
+          // Store memories locally for next conversation context
+          const memoryContent = memories.join("\n");
+          mem0Service.storeContext(currentConversation.id, memoryContent);
+        }
+      }).catch((error: Error) => {
+        console.error("Memory retrieval failed (non-blocking):", error);
+      });
+    }
+
+    // Use locally cached memories if available (faster than API call)
+    const cachedMemories = mem0Service?.getContext(currentConversation.id);
+    if (cachedMemories) {
+      messagesToSend = [
+        { role: "system", content: `Previous context:\n${cachedMemories}` },
+        ...messagesToSend
+      ];
+    }
+
     const userMessage: ChatMessage = {
       role: "user",
       content: input,
       metadata: files.length > 0 ? { files: files.map(f => ({ name: f.name, size: f.size, type: f.type })) } : undefined,
     }
-    const newMessages = [...messages, userMessage]
+    const newMessages = [...messagesToSend, userMessage]
     setMessages(newMessages)
     saveMessages(currentConversation.id, newMessages)
     setInput("")
@@ -237,12 +301,13 @@ export default function ChatPage() {
               
               if (content) {
                 completeMessage += content
-                setStreamingMessage(completeMessage)
-                
-                // Force a re-render for immediate UI update
-                if (completeMessage.length % 3 === 0) {
-                  setStreamingMessage(prev => prev)
-                }
+                // Only update state if the message has changed to prevent unnecessary re-renders
+                setStreamingMessage(prev => {
+                  if (prev !== completeMessage) {
+                    return completeMessage
+                  }
+                  return prev
+                })
               }
             } catch (e) {
               // Skip invalid JSON
@@ -268,14 +333,28 @@ export default function ChatPage() {
         }
       }
 
+      // Ensure final message is set correctly
+      setStreamingMessage(completeMessage)
+
       // Add the final message to the messages array
       const finalMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: completeMessage }]
       setMessages(finalMessages)
       saveMessages(currentConversation.id, finalMessages)
 
-      // Store memory if enabled
-      if (memoryEnabled) {
+      // Performance monitoring
+      const responseTime = performance.now() - startTime
+      console.log(`[zen0] Response time: ${responseTime.toFixed(2)}ms`)
+
+      // Store memory in background - don't block the UI
+      if (memoryEnabled && mem0Service) {
+        // Local storage is fast, do it immediately
         localStorageService.storeMemory(currentConversation.id, finalMessages)
+        
+        // Mem0 storage in background - non-blocking
+        mem0Service.storeMemories(currentConversation.id, finalMessages).catch((error: Error) => {
+          console.error("Background Mem0 storage failed:", error);
+          // Don't retry immediately to avoid API throttling
+        });
       }
     } catch (error) {
       console.error("Failed to send message:", error)
@@ -330,6 +409,7 @@ export default function ChatPage() {
       setCurrentConversation(null)
       setMessages([])
       setApiKey("")
+      setMem0ApiKey("")
       setSelectedModel("llama-3.1-8b-instant")
       setMemoryEnabled(false)
       setFiles([])
@@ -376,12 +456,15 @@ export default function ChatPage() {
                         if (key.model) {
                           modelMap[key.provider] = key.model
                         }
+                      } else if (key.provider === "mem0") {
+                        keyMap[key.provider] = key.key
                       }
                     })
 
                     setApiKey(keyMap.groq || "")
+                    setMem0ApiKey(keyMap.mem0 || "")
                     setSelectedModel(modelMap.groq || "llama-3.1-8b-instant")
-                    setMemoryEnabled(!!keyMap.mem0)
+                    setMemoryEnabled(!!keyMap.mem0 || !!keyMap.groq)
 
                     if (keyMap.groq) {
                       setShowApiSetup(false)
@@ -478,7 +561,7 @@ export default function ChatPage() {
                   <Brain className="w-4 h-4" />
                   <span className="font-medium">Memory Enabled</span>
                   <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-0 ml-auto">
-                    Active
+                    {mem0ApiKey ? "Mem0 Active" : "Local Only"}
                   </Badge>
                 </div>
               )}
@@ -536,6 +619,21 @@ export default function ChatPage() {
         </ScrollArea>
 
         <div className="p-2 border-t border-gray-200">
+          {/* Mem0 Status Indicator */}
+          {mem0ApiKey && !sidebarCollapsed && (
+            <div className="mb-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-800">Mem0 AI Memory Active</p>
+                  <p className="text-xs text-gray-600 truncate">Advanced memory system enabled</p>
+                </div>
+                <div className="text-xs text-gray-500 cursor-help" title="Mem0 AI Memory provides intelligent, persistent memory across conversations. It learns from your interactions and provides relevant context for better, more personalized responses.">
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-1">
             <Button 
               {...({ variant: "ghost" } as any)} 
@@ -617,9 +715,27 @@ export default function ChatPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {memoryEnabled && (
-                    <Badge variant="outline" className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border-0 px-2.5 py-1">
+                    <Badge 
+                      variant="outline" 
+                      className={`flex items-center gap-1.5 text-xs px-2.5 py-1 ${
+                        mem0ApiKey 
+                          ? "bg-green-50 text-green-700 border-green-200" 
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                      }`}
+                      title={mem0ApiKey ? "Mem0 AI Memory: Advanced AI-powered memory system that learns and provides intelligent context across conversations" : "Local Memory: Basic memory storage in your browser"}
+                    >
                       <Brain className="w-3 h-3" />
-                      Memory Active
+                      {mem0ApiKey ? "Mem0 AI Memory" : "Local Memory"}
+                    </Badge>
+                  )}
+                  {mem0ApiKey && (
+                    <Badge 
+                      variant="outline" 
+                      className="flex items-center gap-1.5 text-xs bg-gray-50 text-gray-700 border-gray-200 px-2.5 py-1"
+                      title="Mem0 AI Memory is actively learning from your conversations and providing intelligent context for better responses"
+                    >
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
+                      AI Memory
                     </Badge>
                   )}
                 </div>
@@ -690,6 +806,18 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
+
+            {/* Memory Processing Indicator */}
+            {memoryEnabled && mem0ApiKey && (
+              <div className="border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-blue-50/50 px-4 py-2">
+                <div className="max-w-3xl mx-auto">
+                  <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
+                    <span>Mem0 AI Memory: Learning from this conversation</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Input Area */}
             <div className="border-t border-gray-200 p-4">

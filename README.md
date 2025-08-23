@@ -1,15 +1,16 @@
 # zen0 - AI Chat with Blazing Fast Responses
 
-A modern AI chatbot application that delivers blazing fast responses using Groq's lightning-fast inference technology. All data is stored locally in your browser's localStorage for complete privacy.
+A modern AI chatbot application that delivers blazing fast responses using Groq's lightning-fast inference technology and enhanced with Mem0 AI Memory for intelligent, persistent conversations. All data is stored locally in your browser's localStorage for complete privacy.
 
 ## Features
 
 - **Blazing Fast Responses**: Powered by Groq's ultra-fast inference for near-instantaneous AI responses
+- **Mem0 AI Memory**: Advanced AI-powered memory system that learns from conversations and provides intelligent context
 - **Local Storage**: All conversations, messages, and settings are stored locally in your browser
 - **Multiple Groq Models**: Access to all Llama, DeepSeek, and other models available through Groq
 - **Image Upload & OCR**: Upload images and extract text for context
 - **Image Generation**: Generate images using DALL-E with `/generate` command
-- **Memory System**: Simple local memory system for conversation context
+- **Intelligent Memory**: Mem0-powered memory system for conversation context and learning
 - **Data Export/Import**: Backup and restore your conversations
 - **Responsive Design**: Modern UI built with Tailwind CSS and Radix UI
 
@@ -26,14 +27,16 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
    pnpm install
    ```
 
-3. **Set up Groq API key**
+3. **Set up API keys**
    - Navigate to the chat page
-   - Click "API Settings" to configure your Groq API key
-   - Get your API key from [Groq Console](https://console.groq.com/keys)
+   - Click "API Settings" to configure your API keys
+   - **Groq API Key**: Get your key from [Groq Console](https://console.groq.com/keys)
+   - **Mem0 API Key** (Optional): Get your key from [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys) for advanced AI memory
 
 4. **Start chatting**
    - Create a new conversation
    - Experience blazing fast responses with Groq-powered models
+   - Enjoy intelligent memory with Mem0 AI Memory (if configured)
    - Upload images for context
    - Use `/generate [prompt]` for image creation
 
@@ -43,13 +46,15 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 - `zen0-conversations`: List of all conversations
 - `zen0-messages-{id}`: Messages for each conversation
 - `zen0-settings`: User settings and API keys
-- `zen0-memory`: Simple memory system for context
+- `zen0-memory`: Local memory system for context
+- `mem0-batch`: Mem0 AI Memory batching for efficient storage
 
 ### Key Components
 - **LocalStorageService**: Handles all data persistence
-- **Chat Interface**: Main chat functionality
+- **Mem0Service**: Manages AI memory operations and batching
+- **Chat Interface**: Main chat functionality with memory integration
 - **API Routes**: Simplified endpoints for Groq API communication
-- **BYOK Setup**: Groq API key configuration interface
+- **BYOK Setup**: API key configuration for both Groq and Mem0
 
 ## Data Management
 
@@ -78,6 +83,27 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 ### Key Format
 - Groq API keys start with `gsk_`
 - Get your key from [Groq Console](https://console.groq.com/keys)
+
+## Mem0 AI Memory
+
+### Overview
+Mem0 AI Memory provides intelligent, persistent memory across conversations. It learns from your interactions and provides relevant context for better, more personalized responses.
+
+### Features
+- **Intelligent Context Retrieval**: Automatically finds relevant memories based on conversation topics
+- **Persistent Learning**: Remembers preferences, facts, and conversation patterns across sessions
+- **Efficient Batching**: Optimized memory storage with intelligent batching for performance
+- **Privacy-First**: All memory operations happen locally with optional cloud sync
+
+### Setup
+1. Get your Mem0 API key from [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys)
+2. Configure it in the API Settings section
+3. Enable memory in your chat settings
+4. Start chatting - Mem0 will automatically learn and provide context
+
+### Key Format
+- Mem0 API keys start with `m0-`
+- Get your key from [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys)
 
 ## Development
 
