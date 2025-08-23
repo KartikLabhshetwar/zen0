@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Plus, Settings, Brain, Trash2, Database, Download, Upload as UploadIcon, Paperclip, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { BYOKSetup } from "@/components/byok-setup"
-import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { Markdown } from "@/components/ui/markdown"
 import { localStorageService, type Conversation, type Message } from "@/lib/local-storage"
 import { toast } from "sonner"
 import {
@@ -469,9 +469,9 @@ export default function ChatPage() {
                       }`}
                     >
                       {message.role === "assistant" ? (
-                        <MarkdownRenderer 
-                          content={message.content} 
-                        />
+                        <Markdown className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
+                          {message.content}
+                        </Markdown>
                       ) : (
                         <div className="whitespace-pre-wrap break-words">
                           {message.content}
@@ -513,9 +513,9 @@ export default function ChatPage() {
                 {streamingMessage && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                      <MarkdownRenderer 
-                        content={streamingMessage + "▋"} 
-                      />
+                      <Markdown className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
+                        {streamingMessage + "▋"}
+                      </Markdown>
                     </div>
                   </div>
                 )}
