@@ -213,13 +213,17 @@ export default function ChatPage() {
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
       let completeMessage = ""
+      let buffer = ""
 
       while (reader) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split("\n")
+        buffer += decoder.decode(value, { stream: true })
+        
+        // Process complete lines from the buffer
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || "" // Keep the last incomplete line in the buffer
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
@@ -233,10 +237,32 @@ export default function ChatPage() {
               if (content) {
                 completeMessage += content
                 setStreamingMessage(completeMessage)
+                
+                // Force a re-render for immediate UI update
+                if (completeMessage.length % 3 === 0) {
+                  setStreamingMessage(prev => prev)
+                }
               }
             } catch (e) {
               // Skip invalid JSON
             }
+          }
+        }
+      }
+
+      // Process any remaining data in the buffer
+      if (buffer.startsWith("data: ")) {
+        const data = buffer.slice(6)
+        if (data !== "[DONE]") {
+          try {
+            const parsed = JSON.parse(data)
+            const content = parsed.choices?.[0]?.delta?.content
+            if (content) {
+              completeMessage += content
+              setStreamingMessage(completeMessage)
+            }
+          } catch (e) {
+            // Skip invalid JSON
           }
         }
       }
@@ -644,7 +670,7 @@ export default function ChatPage() {
                   <div className="flex justify-start">
                     <div className="max-w-[85%] md:max-w-[80%] rounded-2xl p-4 bg-gray-100 text-gray-900">
                       <Markdown className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
-                        {streamingMessage + "▋"}
+                        {streamingMessage}
                       </Markdown>
                     </div>
                   </div>
