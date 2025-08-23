@@ -2,17 +2,16 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
-import { Plus, Send, Settings, Brain, Trash2, Upload, X, Share, Database } from "lucide-react"
+import { Plus, Send, Settings, Brain, Trash2, Database, Download, Upload as UploadIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { BYOKSetup } from "@/components/byok-setup"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
-import { DataSyncManager } from "@/components/data-sync-manager"
-import { useSession } from "next-auth/react"
+import { localStorageService, type Conversation, type Message } from "@/lib/local-storage"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -28,22 +27,9 @@ interface ChatMessage {
   content: string
   created_at?: string
   metadata?: Record<string, any>
-  image?: string
-  imageUrl?: string
-}
-
-interface Conversation {
-  id: string
-  title: string
-  provider: string
-  model: string
-  created_at: string
-  is_shared?: boolean
-  share_token?: string
 }
 
 export default function ChatPage() {
-  const { data: session, status } = useSession()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -51,177 +37,105 @@ export default function ChatPage() {
   const [streamingMessage, setStreamingMessage] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
-  const [showSyncManager, setShowSyncManager] = useState(false)
+  const [showDataManager, setShowDataManager] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
   const [modelPreferences, setModelPreferences] = useState<Record<string, string>>({})
   const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
-  const [cloudMode, setCloudMode] = useState<boolean>(true)
+
+  // Debounced streaming message update to reduce jittering
+  const debouncedSetStreamingMessage = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout
+      return (content: string) => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => {
+          setStreamingMessage(content)
+        }, 50) // 50ms debounce
+      }
+    })(),
+    []
+  )
 
   useEffect(() => {
-    if (status === "loading") return
+    loadLocalSettings()
+  }, [])
 
-    if (session?.user) {
-      loadUserSettings()
-    } else {
-      loadLocalSettings()
+  useEffect(() => {
+    fetchConversations()
+  }, [])
+
+  useEffect(() => {
+    // Only auto-scroll when not streaming to prevent jittering
+    if (!isStreaming) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }
-  }, [session, status, selectedProvider])
+  }, [messages, isStreaming])
 
-  const loadUserSettings = async () => {
-    try {
-      const response = await fetch("/api/user/settings")
-      if (response.ok) {
-        const settings = await response.json()
-        const keyMap = settings.api_keys || {}
-        setApiKeys(keyMap)
-        setSelectedProvider(settings.default_provider || "groq")
-        setSelectedModel(settings.default_model || "llama-3.1-8b-instant")
-        setMemoryEnabled(true)
-        setCloudMode(settings.cloud_sync !== false)
-
-        if (Object.keys(keyMap).length === 0) {
-          setShowApiSetup(true)
-        }
+  // Stable scroll to bottom during streaming
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollElement) {
+        scrollElement.scrollTop = scrollElement.scrollHeight
       }
-    } catch (error) {
-      console.error("Failed to load user settings:", error)
-      setShowApiSetup(true)
     }
-  }
+  }, [])
+
+  // Update scroll position when streaming message changes
+  useEffect(() => {
+    if (isStreaming && streamingMessage) {
+      // Use requestAnimationFrame for smooth scrolling
+      requestAnimationFrame(() => {
+        scrollToBottom()
+      })
+    }
+  }, [streamingMessage, isStreaming, scrollToBottom])
 
   const loadLocalSettings = () => {
-    const keys = localStorage.getItem("zen0-api-keys")
-    if (keys) {
-      const parsedKeys = JSON.parse(keys)
-      const keyMap: Record<string, string> = {}
-      const modelMap: Record<string, string> = {}
+    const settings = localStorageService.getSettings()
+    setApiKeys(settings.api_keys)
+    setSelectedProvider(settings.default_provider)
+    setSelectedModel(settings.default_model)
+    setMemoryEnabled(settings.memory_enabled)
 
-      parsedKeys.forEach((key: any) => {
-        keyMap[key.provider] = key.key
-        if (key.model) {
-          modelMap[key.provider] = key.model
-        }
-      })
-
-      setApiKeys(keyMap)
-      setModelPreferences(modelMap)
-      setMemoryEnabled(!!keyMap.mem0)
-      setCloudMode(false)
-
-      const availableProviders = Object.keys(keyMap)
-      if (availableProviders.length > 0 && !selectedProvider) {
-        const defaultProvider = availableProviders.includes("groq") ? "groq" : availableProviders[0]
-        setSelectedProvider(defaultProvider)
-        setSelectedModel(modelMap[defaultProvider] || "llama-3.1-8b-instant")
-      }
-
-      if (Object.keys(keyMap).length === 0) {
-        setShowApiSetup(true)
-      }
-    } else {
+    if (Object.keys(settings.api_keys).length === 0) {
       setShowApiSetup(true)
     }
   }
 
-  useEffect(() => {
-    if (status !== "loading") {
-      fetchConversations()
-    }
-  }, [session, status])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, streamingMessage])
-
-  const fetchConversations = async () => {
-    if (session?.user && cloudMode) {
-      try {
-        const response = await fetch("/api/user/conversations")
-        if (response.ok) {
-          const data = await response.json()
-          setConversations(data.conversations || [])
-        }
-      } catch (error) {
-        console.error("Failed to fetch conversations:", error)
-      }
-    } else {
-      const stored = localStorage.getItem("zen0-conversations")
-      if (stored) {
-        setConversations(JSON.parse(stored))
-      }
-    }
+  const fetchConversations = () => {
+    const stored = localStorageService.getConversations()
+    setConversations(stored)
   }
 
-  const saveConversations = (convs: Conversation[]) => {
-    if (!session?.user || !cloudMode) {
-      localStorage.setItem("zen0-conversations", JSON.stringify(convs))
-    }
-    setConversations(convs)
+  const loadConversationMessages = (conversationId: string) => {
+    const stored = localStorageService.getMessages(conversationId)
+    setMessages(stored)
   }
 
-  const loadConversationMessages = async (conversationId: string) => {
-    if (session?.user && cloudMode) {
-      try {
-        const response = await fetch(`/api/conversations/${conversationId}/messages`)
-        if (response.ok) {
-          const data = await response.json()
-          setMessages(data.messages || [])
-        } else {
-          setMessages([])
-        }
-      } catch (error) {
-        console.error("Failed to load messages:", error)
-        setMessages([])
-      }
-    } else {
-      const stored = localStorage.getItem(`zen0-messages-${conversationId}`)
-      if (stored) {
-        setMessages(JSON.parse(stored))
-      } else {
-        setMessages([])
-      }
-    }
+  const saveMessages = (conversationId: string, msgs: ChatMessage[]) => {
+    // Convert ChatMessage to Message format for storage
+    const messagesForStorage: Message[] = msgs.map(msg => ({
+      id: Date.now().toString(),
+      conversation_id: conversationId,
+      role: msg.role,
+      content: msg.content,
+      metadata: msg.metadata,
+      created_at: msg.created_at || new Date().toISOString(),
+    }))
+    localStorageService.saveMessages(conversationId, messagesForStorage)
   }
 
-  const saveMessages = async (conversationId: string, msgs: ChatMessage[]) => {
-    if (session?.user && cloudMode) {
-      try {
-        await fetch(`/api/conversations/${conversationId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: msgs }),
-        })
-      } catch (error) {
-        console.error("Failed to save messages:", error)
-        localStorage.setItem(`zen0-messages-${conversationId}`, JSON.stringify(msgs))
-      }
-    } else {
-      localStorage.setItem(`zen0-messages-${conversationId}`, JSON.stringify(msgs))
-    }
-  }
-
-  const deleteConversation = async (conversationId: string) => {
-    if (session?.user && cloudMode) {
-      try {
-        await fetch(`/api/conversations/${conversationId}`, {
-          method: "DELETE",
-        })
-      } catch (error) {
-        console.error("Failed to delete conversation:", error)
-      }
-    } else {
-      localStorage.removeItem(`zen0-messages-${conversationId}`)
-    }
+  const deleteConversation = (conversationId: string) => {
+    localStorageService.deleteConversation(conversationId)
 
     const updatedConversations = conversations.filter((conv) => conv.id !== conversationId)
-    saveConversations(updatedConversations)
+    setConversations(updatedConversations)
 
     if (currentConversation?.id === conversationId) {
       setCurrentConversation(null)
@@ -229,7 +143,7 @@ export default function ChatPage() {
     }
   }
 
-  const createNewConversation = async () => {
+  const createNewConversation = () => {
     if (!apiKeys[selectedProvider]) {
       setShowApiSetup(true)
       return
@@ -237,152 +151,32 @@ export default function ChatPage() {
 
     const modelToUse = modelPreferences[selectedProvider] || selectedModel
 
-    const newConversation: Conversation = {
-      id: Date.now().toString(),
+    const newConversation = localStorageService.createConversation({
       title: "New Chat",
       provider: selectedProvider,
       model: modelToUse,
-      created_at: new Date().toISOString(),
-    }
+    })
 
-    if (session?.user && cloudMode) {
-      try {
-        const response = await fetch("/api/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newConversation),
-        })
-        if (response.ok) {
-          const savedConversation = await response.json()
-          const updatedConversations = [savedConversation, ...conversations]
-          setConversations(updatedConversations)
-          setCurrentConversation(savedConversation)
-        }
-      } catch (error) {
-        console.error("Failed to create conversation:", error)
-      }
-    } else {
-      const updatedConversations = [newConversation, ...conversations]
-      saveConversations(updatedConversations)
-      setCurrentConversation(newConversation)
-    }
-
+    setConversations([newConversation, ...conversations])
+    setCurrentConversation(newConversation)
     setMessages([])
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type.startsWith("image/")) {
-      setImageFile(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const removeUploadedImage = () => {
-    setUploadedImage(null)
-    setImageFile(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
-
-  const generateImage = async (prompt: string) => {
-    if (!apiKeys.openai) {
-      alert("OpenAI API key required for image generation")
-      return
-    }
-
-    setIsStreaming(true)
-    try {
-      const response = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          apiKey: apiKeys.openai,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to generate image")
-      }
-
-      const data = await response.json()
-      const imageMessage: ChatMessage = {
-        role: "assistant",
-        content: `Generated image for: "${prompt}"`,
-        imageUrl: data.imageUrl,
-        created_at: new Date().toISOString(),
-      }
-
-      const newMessages = [...messages, imageMessage]
-      setMessages(newMessages)
-      if (currentConversation) {
-        await saveMessages(currentConversation.id, newMessages)
-      }
-    } catch (error) {
-      console.error("Image generation failed:", error)
-    } finally {
-      setIsStreaming(false)
-    }
-  }
-
   const sendMessage = async () => {
-    if ((!input.trim() && !uploadedImage) || isStreaming || !currentConversation) return
+    if (!input.trim() || isStreaming || !currentConversation) return
     if (!apiKeys[selectedProvider]) {
       setShowApiSetup(true)
       return
     }
 
-    if (input.toLowerCase().startsWith("/generate ") || input.toLowerCase().startsWith("/image ")) {
-      const prompt = input.replace(/^\/(generate|image)\s+/i, "")
-      if (prompt.trim()) {
-        const userMessage: ChatMessage = { role: "user", content: input }
-        const newMessages = [...messages, userMessage]
-        setMessages(newMessages)
-        await saveMessages(currentConversation.id, newMessages)
-        setInput("")
-        await generateImage(prompt)
-      }
-      return
-    }
-
-    let messageContent = input
-    if (uploadedImage && imageFile) {
-      try {
-        setIsStreaming(true)
-        setStreamingMessage("Extracting text from image...")
-
-        const extractedText = await extractTextFromImage(uploadedImage)
-        if (extractedText.trim()) {
-          messageContent = input
-            ? `${input}\n\n[Extracted text from image: ${extractedText}]`
-            : `[Extracted text from image: ${extractedText}]`
-        }
-
-        setStreamingMessage("")
-        setIsStreaming(false)
-      } catch (error) {
-        console.error("OCR failed:", error)
-        setStreamingMessage("")
-        setIsStreaming(false)
-      }
-    }
-
     const userMessage: ChatMessage = {
       role: "user",
-      content: messageContent,
-      ...(uploadedImage && { image: uploadedImage }),
+      content: input,
     }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
-    await saveMessages(currentConversation.id, newMessages)
+    saveMessages(currentConversation.id, newMessages)
     setInput("")
-    removeUploadedImage()
     setIsStreaming(true)
     setStreamingMessage("")
 
@@ -395,7 +189,6 @@ export default function ChatPage() {
           provider: currentConversation.provider,
           model: currentConversation.model,
           apiKey: apiKeys[currentConversation.provider],
-          conversationId: currentConversation.id,
         }),
       })
 
@@ -424,7 +217,8 @@ export default function ChatPage() {
               const content = parsed.choices?.[0]?.delta?.content
               if (content) {
                 completeMessage += content
-                setStreamingMessage(completeMessage)
+                // Use debounced update to reduce jittering
+                debouncedSetStreamingMessage(completeMessage)
               }
             } catch (e) {
               // Skip invalid JSON
@@ -433,10 +227,16 @@ export default function ChatPage() {
         }
       }
 
-      const finalMessages = [...newMessages, { role: "assistant", content: completeMessage }]
-      setMessages(finalMessages)
-      await saveMessages(currentConversation.id, finalMessages)
+      // Clear streaming message first, then add final message
       setStreamingMessage("")
+      const finalMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: completeMessage }]
+      setMessages(finalMessages)
+      saveMessages(currentConversation.id, finalMessages)
+
+      // Store memory if enabled
+      if (memoryEnabled) {
+        localStorageService.storeMemory(currentConversation.id, finalMessages)
+      }
     } catch (error) {
       console.error("Failed to send message:", error)
     } finally {
@@ -444,104 +244,47 @@ export default function ChatPage() {
     }
   }
 
-  const extractTextFromImage = async (imageDataUrl: string): Promise<string> => {
-    try {
-      const response = await fetch("/api/ocr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageDataUrl }),
-      })
+  const exportData = () => {
+    const data = localStorageService.exportData()
+    const blob = new Blob([data], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `zen0-backup-${new Date().toISOString().split("T")[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success("Data exported successfully!")
+  }
 
-      if (!response.ok) {
-        throw new Error("OCR failed")
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const jsonData = e.target?.result as string
+        if (localStorageService.importData(jsonData)) {
+          toast.success("Data imported successfully!")
+          loadLocalSettings()
+          fetchConversations()
+        } else {
+          toast.error("Failed to import data")
+        }
       }
-
-      const data = await response.json()
-      return data.text || ""
-    } catch (error) {
-      console.error("OCR extraction failed:", error)
-      return ""
+      reader.readAsText(file)
     }
   }
 
-  const shareConversation = async (conversationId: string) => {
-    if (!session?.user) {
-      toast.error("Sign in required to share conversations")
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}/share`, {
-        method: "POST",
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const shareUrl = `${window.location.origin}/shared/${data.shareToken}`
-
-        await navigator.clipboard.writeText(shareUrl)
-        toast.success("Share link copied to clipboard!")
-
-        setConversations((prev) =>
-          prev.map((conv) =>
-            conv.id === conversationId ? { ...conv, is_shared: true, share_token: data.shareToken } : conv,
-          ),
-        )
-
-        if (currentConversation?.id === conversationId) {
-          setCurrentConversation((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  is_shared: true,
-                  share_token: data.shareToken,
-                }
-              : null,
-          )
-        }
-      } else {
-        toast.error("Failed to share conversation")
-      }
-    } catch (error) {
-      console.error("Failed to share conversation:", error)
-      toast.error("Failed to share conversation")
-    }
-  }
-
-  const unshareConversation = async (conversationId: string) => {
-    if (!session?.user) return
-
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}/share`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        toast.success("Conversation is no longer shared")
-
-        setConversations((prev) =>
-          prev.map((conv) =>
-            conv.id === conversationId ? { ...conv, is_shared: false, share_token: undefined } : conv,
-          ),
-        )
-
-        if (currentConversation?.id === conversationId) {
-          setCurrentConversation((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  is_shared: false,
-                  share_token: undefined,
-                }
-              : null,
-          )
-        }
-      } else {
-        toast.error("Failed to unshare conversation")
-      }
-    } catch (error) {
-      console.error("Failed to unshare conversation:", error)
-      toast.error("Failed to unshare conversation")
+  const clearAllData = () => {
+    if (confirm("Are you sure you want to clear all data? This action cannot be undone.")) {
+      localStorageService.clearAllData()
+      setConversations([])
+      setCurrentConversation(null)
+      setMessages([])
+      setApiKeys({})
+      setSelectedProvider("")
+      setSelectedModel("")
+      setMemoryEnabled(false)
+      toast.success("All data cleared")
     }
   }
 
@@ -595,7 +338,7 @@ export default function ChatPage() {
     <div className="flex h-screen bg-background">
       <div className="w-64 border-r bg-background flex flex-col">
         <div className="p-4 border-b space-y-2">
-          <Button onClick={createNewConversation} className="w-full" size="sm">
+          <Button onClick={createNewConversation} className="w-full" {...({ size: "sm" } as any)}>
             <Plus className="w-4 h-4 mr-2" />
             New Chat
           </Button>
@@ -610,7 +353,7 @@ export default function ChatPage() {
           )}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Database className="w-3 h-3" />
-            <span>{cloudMode && session?.user ? "Cloud Sync" : "Local Storage"}</span>
+            <span>Local Storage</span>
           </div>
         </div>
 
@@ -618,7 +361,7 @@ export default function ChatPage() {
           {conversations.map((conv) => (
             <div key={conv.id} className="group relative">
               <Button
-                variant={currentConversation?.id === conv.id ? "secondary" : "ghost"}
+                {...({ variant: currentConversation?.id === conv.id ? "secondary" : "ghost" } as any)}
                 className="w-full justify-start mb-1 h-auto p-3 pr-8"
                 onClick={() => {
                   setCurrentConversation(conv)
@@ -628,11 +371,6 @@ export default function ChatPage() {
                 <div className="text-left truncate">
                   <div className="font-medium truncate flex items-center gap-2">
                     {conv.title}
-                    {conv.is_shared && (
-                      <Badge variant="outline" className="text-xs">
-                        Shared
-                      </Badge>
-                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {conv.provider} • {conv.model}
@@ -640,8 +378,7 @@ export default function ChatPage() {
                 </div>
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
+                {...({ variant: "ghost", size: "sm" } as any)}
                 className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -655,28 +392,45 @@ export default function ChatPage() {
         </ScrollArea>
 
         <div className="p-4 border-t space-y-2">
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => setShowApiSetup(true)}>
+          <Button {...({ variant: "ghost", size: "sm" } as any)} className="w-full justify-start" onClick={() => setShowApiSetup(true)}>
             <Settings className="w-4 h-4 mr-2" />
             API Settings
           </Button>
-          <Dialog open={showSyncManager} onOpenChange={setShowSyncManager}>
+          <Dialog open={showDataManager} onOpenChange={setShowDataManager}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Button {...({ variant: "ghost", size: "sm" } as any)} className="w-full justify-start">
                 <Database className="w-4 h-4 mr-2" />
-                Data Sync
+                Data Manager
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Data Sync & Storage</DialogTitle>
-                <DialogDescription>Manage how your conversations are stored and synchronized</DialogDescription>
+                <DialogTitle>Data Management</DialogTitle>
+                <DialogDescription>Export, import, or clear your local data</DialogDescription>
               </DialogHeader>
-              <DataSyncManager
-                onSyncComplete={() => {
-                  fetchConversations()
-                  setShowSyncManager(false)
-                }}
-              />
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Button onClick={exportData} className="flex-1">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Data
+                  </Button>
+                  <Button {...({ variant: "outline" } as any)} className="flex-1">
+                    <label className="flex items-center justify-center w-full cursor-pointer">
+                      <UploadIcon className="w-4 h-4 mr-2" />
+                      Import Data
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={importData}
+                        className="hidden"
+                      />
+                    </label>
+                  </Button>
+                </div>
+                <Button {...({ variant: "destructive" } as any)} onClick={clearAllData} className="w-full">
+                  Clear All Data
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
@@ -696,22 +450,6 @@ export default function ChatPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {session?.user && cloudMode && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (currentConversation.is_shared) {
-                          unshareConversation(currentConversation.id)
-                        } else {
-                          shareConversation(currentConversation.id)
-                        }
-                      }}
-                    >
-                      <Share className="w-4 h-4 mr-2" />
-                      {currentConversation.is_shared ? "Unshare" : "Share"}
-                    </Button>
-                  )}
                   {memoryEnabled && (
                     <Badge variant="outline" className="flex items-center gap-1 text-xs">
                       <Brain className="w-3 h-3" />
@@ -722,7 +460,7 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
               <div className="space-y-4 max-w-3xl mx-auto">
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -731,26 +469,6 @@ export default function ChatPage() {
                         message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                       }`}
                     >
-                      {message.image && (
-                        <div className="mb-2">
-                          <img
-                            src={message.image || "/placeholder.svg"}
-                            alt="Uploaded image"
-                            className="max-w-full h-auto rounded-lg"
-                            style={{ maxHeight: "300px" }}
-                          />
-                        </div>
-                      )}
-                      {message.imageUrl && (
-                        <div className="mb-2">
-                          <img
-                            src={message.imageUrl || "/placeholder.svg"}
-                            alt="Generated image"
-                            className="max-w-full h-auto rounded-lg"
-                            style={{ maxHeight: "300px" }}
-                          />
-                        </div>
-                      )}
                       {message.role === "assistant" ? (
                         <MarkdownRenderer content={message.content} />
                       ) : (
@@ -777,52 +495,14 @@ export default function ChatPage() {
             </ScrollArea>
 
             <div className="border-t p-4">
-              {uploadedImage && (
-                <div className="max-w-3xl mx-auto mb-3">
-                  <div className="relative inline-block">
-                    <img
-                      src={uploadedImage || "/placeholder.svg"}
-                      alt="Upload preview"
-                      className="max-h-32 rounded-lg border"
-                    />
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                      onClick={removeUploadedImage}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
               <div className="flex gap-2 max-w-3xl mx-auto">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isStreaming}
-                  className="px-3"
-                >
-                  <Upload className="w-4 h-4" />
-                </Button>
-
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={
                     memoryEnabled
-                      ? "Ask me anything, upload an image, or use /generate for image creation..."
-                      : "Type your message, upload an image, or use /generate for image creation..."
+                      ? "Ask me anything..."
+                      : "Type your message..."
                   }
                   onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                   disabled={isStreaming}
@@ -830,18 +510,12 @@ export default function ChatPage() {
                 />
                 <Button
                   onClick={sendMessage}
-                  disabled={isStreaming || (!input.trim() && !uploadedImage)}
-                  size="sm"
+                  disabled={isStreaming || !input.trim()}
+                  {...({ size: "sm" } as any)}
                   className="px-3"
                 >
                   <Send className="w-4 h-4" />
                 </Button>
-              </div>
-
-              <div className="max-w-3xl mx-auto mt-2">
-                <p className="text-xs text-muted-foreground text-center">
-                  Use <code>/generate [prompt]</code> or <code>/image [prompt]</code> to create images with DALL-E
-                </p>
               </div>
             </div>
           </>
@@ -851,8 +525,8 @@ export default function ChatPage() {
               <h2 className="text-xl font-semibold mb-2">Welcome to zen0</h2>
               <p className="text-muted-foreground mb-4 text-center max-w-md">
                 {memoryEnabled
-                  ? "Create a new chat to start a conversation with memory-enhanced AI, image uploads, and generation"
-                  : "Create a new chat to get started with AI conversations, image uploads, and generation"}
+                  ? "Create a new chat to start a conversation with memory-enhanced AI"
+                  : "Create a new chat to get started with AI conversations"}
               </p>
               <Button onClick={createNewConversation}>
                 <Plus className="w-4 h-4 mr-2" />

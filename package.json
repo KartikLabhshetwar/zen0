@@ -9,10 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@auth/core": "latest",
     "@hookform/resolvers": "^3.9.1",
-    "@neondatabase/serverless": "latest",
-    "@next-auth/prisma-adapter": "^1.0.7",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -49,9 +46,7 @@
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
-    "next-auth": "latest",
     "next-themes": "latest",
-    "nodemailer": "latest",
     "react": "^19",
     "react-day-picker": "9.8.0",
     "react-dom": "^19",
@@ -64,7 +59,6 @@
     "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "tesseract.js": "latest",
     "vaul": "^0.9.6"
   },
   "devDependencies": {

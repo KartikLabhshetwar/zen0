@@ -177,77 +177,78 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   }
 
   return (
-    <ReactMarkdown
-      className="prose prose-sm max-w-none dark:prose-invert"
-      components={{
-        code({ node, inline, className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || "")
-          const codeString = String(children).replace(/\n$/, "")
-          const language = match ? match[1] : ""
+    <div className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
+      <ReactMarkdown
+        components={{
+          code({ node, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || "")
+            const codeString = String(children).replace(/\n$/, "")
+            const language = match ? match[1] : ""
 
-          if (!inline && language === "mermaid") {
-            return <MermaidDiagram code={codeString} />
-          }
+            if (language === "mermaid") {
+              return <MermaidDiagram code={codeString} />
+            }
 
-          if (!inline && match) {
+            if (match) {
+              return (
+                <div className="relative group">
+                  <Button
+                    {...({ size: "sm" } as any)}
+                    variant="ghost"
+                    className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    onClick={() => copyToClipboard(codeString)}
+                  >
+                    {copiedCode === codeString ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto text-sm font-mono leading-relaxed">
+                    <code className={className} {...props}>
+                      {codeString}
+                    </code>
+                  </pre>
+                </div>
+              )
+            }
+
             return (
-              <div className="relative group">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  onClick={() => copyToClipboard(codeString)}
-                >
-                  {copiedCode === codeString ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <pre className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto text-sm font-mono leading-relaxed">
-                  <code className={className} {...props}>
-                    {codeString}
-                  </code>
-                </pre>
-              </div>
+              <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
+                {children}
+              </code>
             )
-          }
-
-          return (
-            <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
+          },
+          h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4 text-foreground">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-xl font-semibold mt-5 mb-3 text-foreground">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-lg font-medium mt-4 mb-2 text-foreground">{children}</h3>,
+          p: ({ children }) => <p className="mb-3 leading-relaxed text-foreground">{children}</p>,
+          ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-foreground">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-foreground">{children}</ol>,
+          li: ({ children }) => <li className="text-foreground">{children}</li>,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-muted-foreground pl-4 italic my-4 text-muted-foreground">
               {children}
-            </code>
-          )
-        },
-        h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4 text-foreground">{children}</h1>,
-        h2: ({ children }) => <h2 className="text-xl font-semibold mt-5 mb-3 text-foreground">{children}</h2>,
-        h3: ({ children }) => <h3 className="text-lg font-medium mt-4 mb-2 text-foreground">{children}</h3>,
-        p: ({ children }) => <p className="mb-3 leading-relaxed text-foreground">{children}</p>,
-        ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-foreground">{children}</ul>,
-        ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-foreground">{children}</ol>,
-        li: ({ children }) => <li className="text-foreground">{children}</li>,
-        blockquote: ({ children }) => (
-          <blockquote className="border-l-4 border-muted-foreground pl-4 italic my-4 text-muted-foreground">
-            {children}
-          </blockquote>
-        ),
-        table: ({ children }) => (
-          <div className="overflow-x-auto my-4">
-            <table className="min-w-full border-collapse border border-muted">{children}</table>
-          </div>
-        ),
-        th: ({ children }) => (
-          <th className="border border-muted bg-muted/50 px-3 py-2 text-left font-medium text-foreground">
-            {children}
-          </th>
-        ),
-        td: ({ children }) => <td className="border border-muted px-3 py-2 text-foreground">{children}</td>,
-        a: ({ children, href }) => (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            {children}
-          </a>
-        ),
-        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-        em: ({ children }) => <em className="italic text-foreground">{children}</em>,
-      }}
-    >
-      {content}
-    </ReactMarkdown>
+            </blockquote>
+          ),
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-4">
+              <table className="min-w-full border-collapse border border-muted">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border border-muted bg-muted/50 px-3 py-2 text-left font-medium text-foreground">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => <td className="border border-muted px-3 py-2 text-foreground">{children}</td>,
+          a: ({ children, href }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              {children}
+            </a>
+          ),
+          strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+          em: ({ children }) => <em className="italic text-foreground">{children}</em>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   )
 }
