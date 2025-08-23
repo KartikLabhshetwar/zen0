@@ -744,16 +744,18 @@ export default function ChatPage() {
 
             {/* Messages */}
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-              <div className="space-y-4 max-w-3xl mx-auto">
+              <div className="space-y-8 max-w-5xl mx-auto">
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                                      <div
-                    className={`max-w-[85%] md:max-w-[80%] rounded-2xl p-4 ${
-                      message.role === "user" ? "bg-neutral-800 text-white" : "bg-gray-100 text-gray-900"
-                    }`}
-                  >
+                    <div
+                      className={`${
+                        message.role === "user" 
+                          ? "max-w-[85%] md:max-w-[80%] bg-neutral-800 text-white" 
+                          : "w-full max-w-5xl text-gray-900"
+                      } rounded-2xl ${message.role === "user" ? "p-4" : "p-6"}`}
+                    >
                       {message.role === "assistant" ? (
-                        <Markdown className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
+                        <Markdown className="max-w-none">
                           {message.content}
                         </Markdown>
                       ) : (
@@ -796,8 +798,8 @@ export default function ChatPage() {
 
                 {streamingMessage && (
                   <div className="flex justify-start">
-                    <div className="max-w-[85%] md:max-w-[80%] rounded-2xl p-4 bg-gray-100 text-gray-900">
-                      <Markdown className="prose prose-sm max-w-none dark:prose-invert [&>*]:!leading-relaxed [&>*]:!m-0 [&>*+*]:!mt-3">
+                    <div className="w-full max-w-5xl rounded-2xl p-6 text-gray-900">
+                      <Markdown className="max-w-none">
                         {streamingMessage}
                       </Markdown>
                     </div>

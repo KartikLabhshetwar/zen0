@@ -34,7 +34,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       return (
         <span
           className={cn(
-            "bg-primary-foreground rounded-sm px-1 font-mono text-sm",
+            "bg-gray-200 rounded px-2 py-1 font-mono text-sm text-gray-800",
             className
           )}
           {...props}
@@ -55,6 +55,109 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   pre: function PreComponent({ children }) {
     return <>{children}</>
   },
+  p: function ParagraphComponent({ children, ...props }) {
+    return (
+      <p className="mb-4 text-gray-800 leading-relaxed" {...props}>
+        {children}
+      </p>
+    )
+  },
+  h1: function H1Component({ children, ...props }) {
+    return (
+      <h1 className="text-2xl font-bold mb-6 text-gray-900 leading-tight" {...props}>
+        {children}
+      </h1>
+    )
+  },
+  h2: function H2Component({ children, ...props }) {
+    return (
+      <h2 className="text-xl font-semibold mb-4 text-gray-900 leading-tight" {...props}>
+        {children}
+      </h2>
+    )
+  },
+  h3: function H3Component({ children, ...props }) {
+    return (
+      <h3 className="text-lg font-medium mb-3 text-gray-900 leading-tight" {...props}>
+        {children}
+      </h3>
+    )
+  },
+  h4: function H4Component({ children, ...props }) {
+    return (
+      <h4 className="text-base font-medium mb-2 text-gray-900 leading-tight" {...props}>
+        {children}
+      </h4>
+    )
+  },
+  ul: function UlComponent({ children, ...props }) {
+    return (
+      <ul className="mb-4 space-y-2 list-disc list-inside text-gray-700" {...props}>
+        {children}
+      </ul>
+    )
+  },
+  ol: function OlComponent({ children, ...props }) {
+    return (
+      <ol className="mb-4 space-y-2 list-decimal list-inside text-gray-700" {...props}>
+        {children}
+      </ol>
+    )
+  },
+  li: function LiComponent({ children, ...props }) {
+    return (
+      <li className="mb-1 text-gray-700 leading-relaxed" {...props}>
+        {children}
+      </li>
+    )
+  },
+  table: function TableComponent({ children, ...props }) {
+    return (
+      <table className="w-full mb-4 border-collapse border border-gray-300" {...props}>
+        {children}
+      </table>
+    )
+  },
+  th: function ThComponent({ children, ...props }) {
+    return (
+      <th className="border border-gray-300 bg-gray-100 px-4 py-2 text-left font-semibold text-gray-900" {...props}>
+        {children}
+      </th>
+    )
+  },
+  td: function TdComponent({ children, ...props }) {
+    return (
+      <td className="border border-gray-300 px-4 py-2 text-gray-700" {...props}>
+        {children}
+      </td>
+    )
+  },
+  blockquote: function BlockquoteComponent({ children, ...props }) {
+    return (
+      <blockquote className="mb-4 border-l-4 border-gray-300 pl-4 italic text-gray-600" {...props}>
+        {children}
+      </blockquote>
+    )
+  },
+  hr: function HrComponent({ ...props }) {
+    return (
+      <hr className="my-6 border-gray-300" {...props} />
+    )
+  },
+  strong: function StrongComponent({ children, ...props }) {
+    return (
+      <strong className="font-semibold text-gray-900" {...props}>
+        {children}
+      </strong>
+    )
+  },
+  em: function EmComponent({ children, ...props }) {
+    return (
+      <em className="italic text-gray-800" {...props}>
+        {children}
+      </em>
+    )
+  }
 }
 
 const MemoizedMarkdownBlock = memo(
