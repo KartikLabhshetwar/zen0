@@ -4,7 +4,6 @@ import ReactMarkdown from "react-markdown"
 import { Button } from "@/components/ui/button"
 import { Copy, Check } from "lucide-react"
 import { useState, useEffect } from "react"
-import { Loader } from "@/components/ui/loader"
 
 interface MarkdownRendererProps {
   content: string

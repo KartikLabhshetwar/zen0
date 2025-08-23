@@ -4,10 +4,9 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
-import { Plus, Send, Settings, Brain, Trash2, Database, Download, Upload as UploadIcon } from "lucide-react"
+import { Plus, Settings, Brain, Trash2, Database, Download, Upload as UploadIcon, Paperclip, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { BYOKSetup } from "@/components/byok-setup"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
@@ -21,6 +20,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction } from "@/components/ui/prompt-input"
+import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
+import { ArrowUp, Square } from "lucide-react"
 
 interface ChatMessage {
   role: "user" | "assistant" | "system"
@@ -44,6 +46,7 @@ export default function ChatPage() {
   const [apiKey, setApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
+  const [files, setFiles] = useState<File[]>([])
 
   useEffect(() => {
     loadLocalSettings()
@@ -153,6 +156,7 @@ export default function ChatPage() {
     const userMessage: ChatMessage = {
       role: "user",
       content: input,
+      metadata: files.length > 0 ? { files: files.map(f => ({ name: f.name, size: f.size, type: f.type })) } : undefined,
     }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
@@ -229,6 +233,7 @@ export default function ChatPage() {
     } finally {
       setIsStreaming(false)
       setStreamingMessage("")
+      setFiles([]) // Clear files after sending
     }
   }
 
@@ -271,8 +276,17 @@ export default function ChatPage() {
       setApiKey("")
       setSelectedModel("llama-3.1-8b-instant")
       setMemoryEnabled(false)
+      setFiles([])
       toast.success("All data cleared")
     }
+  }
+
+  const handleFileChange = (files: File[]) => {
+    setFiles((prev) => [...prev, ...files])
+  }
+
+  const handleRemoveFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   if (showApiSetup) {
@@ -455,9 +469,37 @@ export default function ChatPage() {
                       }`}
                     >
                       {message.role === "assistant" ? (
-                        <MarkdownRenderer content={message.content} />
+                        <MarkdownRenderer 
+                          content={message.content} 
+                        />
                       ) : (
-                        <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                        <div className="whitespace-pre-wrap break-words">
+                          {message.content}
+                          {message.metadata?.files && (
+                            <div className="mt-2 pt-2 border-t border-primary/20">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-xs text-primary/70">
+                                  <Paperclip className="size-3" />
+                                  <span>Attached files: {message.metadata.files.length}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {message.metadata.files.map((file: any, fileIndex: number) => (
+                                    <div key={fileIndex} className="flex items-center gap-2 text-xs">
+                                      {file.type?.startsWith('image/') ? (
+                                        <div className="size-3 rounded bg-primary/20 flex items-center justify-center">
+                                          <span className="text-[10px] text-primary">🖼️</span>
+                                        </div>
+                                      ) : (
+                                        <Paperclip className="size-3" />
+                                      )}
+                                      <span className="text-muted-foreground">{file.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                       {message.created_at && (
                         <div className="text-xs opacity-70 mt-1">
@@ -471,7 +513,9 @@ export default function ChatPage() {
                 {streamingMessage && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                      <MarkdownRenderer content={streamingMessage + "▋"} />
+                      <MarkdownRenderer 
+                        content={streamingMessage + "▋"} 
+                      />
                     </div>
                   </div>
                 )}
@@ -480,27 +524,113 @@ export default function ChatPage() {
             </ScrollArea>
 
             <div className="border-t p-4">
-              <div className="flex gap-2 max-w-3xl mx-auto">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={
-                    memoryEnabled
-                      ? "Ask me anything..."
-                      : "Type your message..."
-                  }
-                  onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                  disabled={isStreaming}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={isStreaming || !input.trim()}
-                  {...({ size: "sm" } as any)}
-                  className="px-3"
+              <div className="max-w-3xl mx-auto">
+                <FileUpload
+                  onFilesAdded={handleFileChange}
+                  accept=".jpg,.jpeg,.png,.pdf,.docx,.txt,.md"
                 >
-                  <Send className="w-4 h-4" />
-                </Button>
+                  <PromptInput
+                    value={input}
+                    onValueChange={setInput}
+                    isLoading={isStreaming}
+                    onSubmit={sendMessage}
+                    className="w-full"
+                  >
+                    {files.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 pb-2">
+                        {files.map((file, index) => (
+                          <div
+                            key={index}
+                            className="bg-secondary flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-2">
+                              {file.type.startsWith('image/') ? (
+                                <div className="size-4 rounded bg-primary/20 flex items-center justify-center">
+                                  <span className="text-xs text-primary">🖼️</span>
+                                </div>
+                              ) : (
+                                <Paperclip className="size-4" />
+                              )}
+                              <span className="max-w-[80px] truncate text-sm">
+                                {file.name}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveFile(index)}
+                              className="hover:bg-secondary/50 rounded-full p-1"
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <PromptInputTextarea 
+                      placeholder={
+                        memoryEnabled
+                          ? "Ask me anything..."
+                          : "Type your message..."
+                      }
+                      disabled={isStreaming}
+                    />
+
+                    <PromptInputActions className="flex items-center justify-between gap-2 pt-2">
+                      <PromptInputAction tooltip="Attach files">
+                        <FileUploadTrigger asChild>
+                          <div className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl">
+                            <Paperclip className="text-primary size-5" />
+                          </div>
+                        </FileUploadTrigger>
+                      </PromptInputAction>
+
+                      <PromptInputAction tooltip="Send message">
+                        <Button
+                          variant="default"
+                          size="icon"
+                          className="h-8 w-8 rounded-full"
+                          onClick={sendMessage}
+                          disabled={isStreaming || (!input.trim() && files.length === 0)}
+                        >
+                          {isStreaming ? (
+                            <Square className="size-5 fill-current" />
+                          ) : (
+                            <ArrowUp className="size-5" />
+                          )}
+                        </Button>
+                      </PromptInputAction>
+                    </PromptInputActions>
+                  </PromptInput>
+
+                  <FileUploadContent>
+                    <div className="flex min-h-[200px] w-full items-center justify-center backdrop-blur-sm">
+                      <div className="bg-background/90 m-4 w-full max-w-md rounded-lg border p-8 shadow-lg">
+                        <div className="mb-4 flex justify-center">
+                          <svg
+                            className="text-muted size-8"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
+                            />
+                          </svg>
+                        </div>
+                        <h3 className="mb-2 text-center text-base font-medium">
+                          Drop files to upload
+                        </h3>
+                        <p className="text-muted-foreground text-center text-sm">
+                          Release to add files to your message
+                        </p>
+                      </div>
+                    </div>
+                  </FileUploadContent>
+                </FileUpload>
               </div>
             </div>
           </>
