@@ -32,8 +32,8 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <Button asChild {...({ size: "sm" } as any)} className="h-8 sm:h-9 text-xs sm:text-sm bg-neutral-800 hover:bg-neutral-900">
-              <Link href="/chat">Start Chatting</Link>
+            <Button asChild {...({ size: "sm" } as any)} className="h-8 sm:h-9 text-xs sm:text-sm bg-slate-700 hover:bg-slate-800 rounded-2xl transition-all duration-200 hover:scale-105 shadow-sm">
+              <Link href="/chat">Get Started</Link>
             </Button>
           </div>
         </div>

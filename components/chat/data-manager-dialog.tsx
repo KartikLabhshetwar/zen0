@@ -31,27 +31,20 @@ export function DataManagerDialog({
           <DialogTitle className="text-lg font-semibold">Data Management</DialogTitle>
           <DialogDescription>Export, import, or clear your local data</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2">
-            <Button onClick={onExport} className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg">
-              <Download className="w-4 h-4 mr-2" />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Button onClick={onExport} className="w-full h-10 bg-slate-700 hover:bg-slate-800 rounded-2xl transition-all duration-200 hover:scale-105 shadow-sm">
               Export Data
             </Button>
-            <Button {...({ variant: "outline" } as any)} className="w-full h-10 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg">
-              <label className="flex items-center justify-center w-full cursor-pointer">
-                <UploadIcon className="w-4 h-4 mr-2" />
-                Import Data
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={onImport}
-                  className="hidden"
-                />
-              </label>
+            <Button {...({ variant: "outline" } as any)} className="w-full h-10 border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl transition-all duration-200">
+              Import Data
             </Button>
           </div>
-          
-          <Button {...({ variant: "destructive" } as any)} onClick={onClearAll} className="w-full h-10 rounded-lg">
+          <Button 
+            {...({ variant: "destructive" } as any)} 
+            onClick={onClearAll}
+            className="w-full h-10 bg-red-600 hover:bg-red-700 rounded-2xl transition-all duration-200 hover:scale-105 shadow-sm"
+          >
             Clear All Data
           </Button>
         </div>

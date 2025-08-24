@@ -7,15 +7,15 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
   return (
-    <div className="md:hidden p-3 border-b border-gray-200 bg-white">
+    <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white">
+      <h1 className="text-lg font-bold text-slate-800">zen0</h1>
       <Button
-        variant="outline"
-        size="sm"
+        variant="ghost"
+        size="icon"
         onClick={onMenuToggle}
-        className="h-9 px-3 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-md"
+        className="h-9 px-3 border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl transition-all duration-200"
       >
-        <Menu className="w-4 h-4 mr-2" />
-        Menu
+        <Menu className="h-4 w-4" />
       </Button>
     </div>
   )

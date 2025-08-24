@@ -161,6 +161,12 @@ class LocalStorageService {
     this.saveSettings(settings)
   }
 
+  updateDefaultModel(model: string): void {
+    const settings = this.getSettings()
+    settings.default_model = model
+    this.saveSettings(settings)
+  }
+
   updateMemoryEnabled(enabled: boolean): void {
     const settings = this.getSettings()
     settings.memory_enabled = enabled

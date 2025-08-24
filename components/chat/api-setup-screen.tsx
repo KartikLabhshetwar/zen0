@@ -8,14 +8,14 @@ interface ApiSetupScreenProps {
 
 export function ApiSetupScreen({ onBackToChat, onContinueToChat }: ApiSetupScreenProps) {
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Back to Chat Button */}
         <div className="mb-6 sm:mb-8">
           <Button
             variant="outline"
             onClick={onBackToChat}
-            className="h-9 px-4 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full"
+            className="h-9 px-4 border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl transition-all duration-200"
           >
             ← Back to Chat
           </Button>
@@ -25,7 +25,7 @@ export function ApiSetupScreen({ onBackToChat, onContinueToChat }: ApiSetupScree
         <div className="text-center mt-8 sm:mt-12">
           <Button
             onClick={onContinueToChat}
-            className="h-10 px-6 sm:px-8 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-full"
+            className="h-10 px-6 sm:px-8 bg-slate-700 hover:bg-slate-800 text-base font-medium rounded-2xl transition-all duration-200 hover:scale-105 shadow-sm"
           >
             Continue to Chat
           </Button>

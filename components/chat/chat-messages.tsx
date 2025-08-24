@@ -50,8 +50,8 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
   }, [streamingMessage, isStreaming])
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-      <div className="space-y-8 max-w-5xl mx-auto">
+    <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 h-full">
+      <div className="space-y-8 max-w-5xl mx-auto pb-4">
         {messages.map((message, index) => (
           <ChatMessage key={index} message={message} index={index} />
         ))}

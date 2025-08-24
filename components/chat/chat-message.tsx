@@ -22,9 +22,9 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
       <div
         className={`${
           isUser 
-            ? "max-w-[85%] md:max-w-[80%] bg-neutral-800 text-white" 
-            : "w-full max-w-5xl text-gray-900"
-        } rounded-2xl ${isUser ? "p-4" : "p-6"}`}
+            ? "max-w-[85%] md:max-w-[80%] bg-slate-700 text-white shadow-sm" 
+            : "w-full max-w-5xl text-slate-800 bg-white"
+        } rounded-3xl ${isUser ? "p-4" : "p-6"}`}
       >
         {isAssistant ? (
           <Markdown className="max-w-none">
@@ -71,7 +71,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 transition-colors duration-200"
+          className="h-8 w-8 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/50 transition-all duration-200 rounded-2xl hover:scale-105"
           onClick={() => {
             navigator.clipboard.writeText(message.content);
             toast.success("Copied to clipboard!");

@@ -36,18 +36,34 @@ export default function ChatPage() {
   const [showReasoning, setShowReasoning] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const [showDataManager, setShowDataManager] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
-  // Debounced input handler to prevent excessive re-renders
-  const debouncedSetInput = useCallback((value: string) => {
-    setInput(value)
-  }, [])
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    // On desktop, sidebar is always visible. On mobile, it starts collapsed
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768
+    }
+    return false
+  })
 
   const [apiKey, setApiKey] = useState<string>("")
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
 
   const [files, setFiles] = useState<File[]>([])
+
+  // Flag to prevent multiple calls to loadLocalSettings
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  // Debounced input handler to prevent excessive re-renders
+  const debouncedSetInput = useCallback((value: string) => {
+    // Preserve the current model selection when input changes
+    const currentModel = selectedModel
+    setInput(value)
+    
+    // Ensure model selection is maintained
+    if (currentModel && currentModel !== selectedModel) {
+      setSelectedModel(currentModel)
+    }
+  }, [selectedModel])
 
   // Mem0 service instance
   const mem0Service = mem0ApiKey ? new Mem0Service(mem0ApiKey) : null
@@ -61,6 +77,7 @@ export default function ChatPage() {
   }, [mem0Service])
 
   useEffect(() => {
+    // Only load settings once when component mounts, not on every mem0Service change
     loadLocalSettings()
     
     // Cleanup function for Mem0 service
@@ -68,8 +85,13 @@ export default function ChatPage() {
       if (mem0Service && mem0Service.isReady()) {
         mem0Service.cleanup();
       }
+      
+      // Save current model selection before unmounting
+      if (selectedModel) {
+        localStorage.setItem('zen0-current-model', selectedModel)
+      }
     };
-  }, [mem0Service])
+  }, []) // Remove mem0Service dependency to prevent unnecessary re-runs
 
   // Show welcome message when Mem0 is first enabled
   useEffect(() => {
@@ -89,11 +111,55 @@ export default function ChatPage() {
     fetchConversations()
   }, [])
 
+  // Handle window resize for sidebar visibility
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        // On desktop, always show sidebar
+        setSidebarCollapsed(false)
+      } else {
+        // On mobile, keep current state
+        setSidebarCollapsed(true)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Update selectedModel when currentConversation changes
+  useEffect(() => {
+    if (currentConversation && currentConversation.model && !selectedModel) {
+      // Only update if we don't have a model selected, preventing override of user choice
+      setSelectedModel(currentConversation.model)
+    }
+  }, [currentConversation, selectedModel])
+
+  // Initialize selected model from settings if not already set
+  useEffect(() => {
+    if (!selectedModel && settingsLoaded) {
+      // First try to restore from localStorage backup
+      const savedModel = localStorage.getItem('zen0-current-model')
+      if (savedModel) {
+        setSelectedModel(savedModel)
+        return
+      }
+      
+      // Fallback to settings
+      const settings = localStorageService.getSettings()
+      const defaultModel = settings.default_model || "llama-3.1-8b-instant"
+      setSelectedModel(defaultModel)
+    }
+  }, [selectedModel, localStorageService, settingsLoaded])
+
   const loadLocalSettings = () => {
+    if (settingsLoaded) {
+      return // Prevent multiple calls
+    }
+    
     const settings = localStorageService.getSettings()
     setApiKey(settings.api_keys.groq || "")
-    setSelectedModel(settings.default_model || "")
-
+    
     // Check if API keys exist in localStorage
     const keys = localStorage.getItem("zen0-api-keys")
     if (keys) {
@@ -103,13 +169,20 @@ export default function ChatPage() {
       
       if (groqKey && groqKey.key) {
         setApiKey(groqKey.key)
-        setSelectedModel(groqKey.model || "llama-3.1-8b-instant")
+        
+        // Only set default model if we don't have a current conversation AND no model is currently selected
+        if (!currentConversation && !selectedModel) {
+          // Use the model from the API key if available, otherwise use the stored default
+          const modelToUse = groqKey.model || settings.default_model || "llama-3.1-8b-instant"
+          setSelectedModel(modelToUse)
+        }
       }
       
       if (mem0Key && mem0Key.key) {
         setMem0ApiKey(mem0Key.key)
       }
       
+      setSettingsLoaded(true)
       return
     }
 
@@ -117,6 +190,8 @@ export default function ChatPage() {
     if (!settings.api_keys.groq) {
       setShowApiSetup(true)
     }
+    
+    setSettingsLoaded(true)
   }
 
   const fetchConversations = () => {
@@ -127,6 +202,13 @@ export default function ChatPage() {
   const loadConversationMessages = (conversationId: string) => {
     const stored = localStorageService.getMessages(conversationId)
     setMessages(stored)
+    
+    // Only update selected model if we don't have one currently selected
+    // This prevents overriding user's model selection when switching conversations
+    const conversation = conversations.find(conv => conv.id === conversationId)
+    if (conversation && conversation.model && !selectedModel) {
+      setSelectedModel(conversation.model)
+    }
   }
 
   const saveMessages = (conversationId: string, msgs: ChatMessage[]) => {
@@ -160,16 +242,53 @@ export default function ChatPage() {
       return
     }
 
+    // Ensure we have a valid model selected
+    const modelToUse = selectedModel || "llama-3.1-8b-instant"
+    
     const newConversation = localStorageService.createConversation({
       title: "New Chat",
       provider: "groq",
-      model: selectedModel,
+      model: modelToUse,
     })
 
     setConversations([newConversation, ...conversations])
     setCurrentConversation(newConversation)
     setMessages([])
+    
+    // Ensure the selected model stays consistent
+    setSelectedModel(modelToUse)
   }
+
+  const handleModelChange = useCallback((model: string) => {
+    console.log('handleModelChange called with:', model)
+    
+    // Always update the selected model immediately
+    setSelectedModel(model)
+    
+    // Backup to localStorage for persistence
+    localStorage.setItem('zen0-current-model', model)
+    
+    // Update current conversation with new model if it exists
+    if (currentConversation) {
+      console.log('Updating conversation model to:', model)
+      const updatedConversation = { ...currentConversation, model }
+      setCurrentConversation(updatedConversation)
+      
+      // Update conversations list
+      const updatedConversations = conversations.map(conv => 
+        conv.id === currentConversation.id ? updatedConversation : conv
+      )
+      setConversations(updatedConversations)
+      
+      // Save to localStorage
+      localStorageService.updateConversation(currentConversation.id, { model })
+    } else {
+      console.log('No current conversation to update')
+    }
+    
+    // Also save the model preference to user settings for future use
+    localStorageService.updateDefaultModel(model)
+  }, [currentConversation, conversations, localStorageService])
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isStreaming || !currentConversation) return
@@ -461,8 +580,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-50">
-      {/* Mobile Backdrop */}
+    <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden">
+      {/* Mobile Backdrop - Only for mobile */}
       {!sidebarCollapsed && (
         <div 
           className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
@@ -479,7 +598,12 @@ export default function ChatPage() {
         onConversationSelect={(conv) => {
           if (conv.id) {
             setCurrentConversation(conv)
+            // Only update the selected model if the conversation has a different model
+            if (conv.model && conv.model !== selectedModel) {
+              setSelectedModel(conv.model)
+            }
             loadConversationMessages(conv.id)
+            // Only collapse sidebar on mobile
             if (window.innerWidth < 768) {
               setSidebarCollapsed(true)
             }
@@ -491,36 +615,50 @@ export default function ChatPage() {
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white">
-        <MobileHeader onMenuToggle={() => setSidebarCollapsed(false)} />
+      <div className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
+        {/* Mobile Header - Only show on mobile */}
+        <div className="md:hidden flex-shrink-0">
+          <MobileHeader onMenuToggle={() => setSidebarCollapsed(false)} />
+        </div>
 
         {currentConversation ? (
           <>
-            <ChatHeader conversation={currentConversation} />
-            <ChatMessages 
-              messages={messages}
-              streamingMessage={streamingMessage}
-              isStreaming={isStreaming}
-              isProcessing={isProcessing}
-              reasoningText={reasoningText}
-              showReasoning={showReasoning}
-            />
-            <ResponseCopySection 
-              streamingMessage={streamingMessage}
-              isStreaming={isStreaming}
-            />
-            <ChatInput
-              input={input}
-              onInputChange={debouncedSetInput}
-              onSubmit={sendMessage}
-              isStreaming={isStreaming}
-              files={files}
-              onFilesChange={setFiles}
-              onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
-            />
+            <div className="flex-shrink-0">
+              <ChatHeader conversation={currentConversation} />
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatMessages 
+                messages={messages}
+                streamingMessage={streamingMessage}
+                isStreaming={isStreaming}
+                isProcessing={isProcessing}
+                reasoningText={reasoningText}
+                showReasoning={showReasoning}
+              />
+            </div>
+            <div className="flex-shrink-0">
+              <ResponseCopySection 
+                streamingMessage={streamingMessage}
+                isStreaming={isStreaming}
+              />
+              <ChatInput
+                input={input}
+                onInputChange={debouncedSetInput}
+                onSubmit={sendMessage}
+                isStreaming={isStreaming}
+                files={files}
+                onFilesChange={setFiles}
+                onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+                apiKey={apiKey}
+                selectedModel={selectedModel}
+                onModelChange={handleModelChange}
+              />
+            </div>
           </>
         ) : (
-          <WelcomeScreen onNewConversation={createNewConversation} />
+          <div className="flex-1 overflow-hidden">
+            <WelcomeScreen onNewConversation={createNewConversation} />
+          </div>
         )}
       </div>
 

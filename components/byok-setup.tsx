@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Eye, EyeOff, Check, X, Edit2, Save, X as Cancel, Info } from "lucide-react"
-import { GroqModelSelector } from "@/components/ui/groq-model-selector"
+
 
 interface APIKey {
   provider: string
@@ -47,13 +47,13 @@ export function BYOKSetup() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
   const [groqApiKey, setGroqApiKey] = useState<string>("")
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
-  const [selectedModel, setSelectedModel] = useState<string>("")
+
   const [showGroqKey, setShowGroqKey] = useState<boolean>(false)
   const [showMem0Key, setShowMem0Key] = useState<boolean>(false)
   const [validating, setValidating] = useState<boolean>(false)
   const [editingProvider, setEditingProvider] = useState<string>("")
   const [editKey, setEditKey] = useState<string>("")
-  const [editModel, setEditModel] = useState<string>("")
+
   const [showEditKey, setShowEditKey] = useState<boolean>(false)
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export function BYOKSetup() {
   }
 
   const handleAddGroqKey = async () => {
-    if (!groqApiKey || !selectedModel) return
+    if (!groqApiKey) return
 
     setValidating(true)
 
@@ -128,7 +128,6 @@ export function BYOKSetup() {
         const newKey: APIKey = {
           provider: "groq",
           key: groqApiKey,
-          model: selectedModel,
         }
 
         const updatedKeys = apiKeys.filter((k) => k.provider !== "groq")
@@ -136,7 +135,6 @@ export function BYOKSetup() {
         saveApiKeys(updatedKeys)
 
         setGroqApiKey("")
-        setSelectedModel("")
       }
     } finally {
       setValidating(false)
@@ -184,7 +182,7 @@ export function BYOKSetup() {
     if (existingKey) {
       setEditingProvider(provider)
       setEditKey(existingKey.key)
-      setEditModel(existingKey.model || "")
+
     }
   }
 
@@ -198,13 +196,11 @@ export function BYOKSetup() {
       let updatedKey: APIKey | null = null
 
       if (editingProvider === "groq") {
-        if (!editModel) return
         isValid = await validateGroqApiKey(editKey)
         if (isValid) {
           updatedKey = {
             provider: "groq",
             key: editKey,
-            model: editModel,
           }
         }
       } else if (editingProvider === "mem0") {
@@ -226,7 +222,7 @@ export function BYOKSetup() {
 
         setEditingProvider("")
         setEditKey("")
-        setEditModel("")
+
         setShowEditKey(false)
       }
     } finally {
@@ -237,7 +233,7 @@ export function BYOKSetup() {
   const handleCancelEdit = () => {
     setEditingProvider("")
     setEditKey("")
-    setEditModel("")
+    
     setShowEditKey(false)
   }
 
@@ -270,7 +266,7 @@ export function BYOKSetup() {
           {providers.map((provider) => {
             const status = getProviderStatus(provider.id)
             const isEditing = editingProvider === provider.id
-            const currentModel = status?.model || "No model selected"
+          
 
             return (
               <Card key={provider.id} className="border-2 border-gray-300 shadow-none bg-white rounded-2xl overflow-hidden">
@@ -298,22 +294,7 @@ export function BYOKSetup() {
                     <div className="space-y-6">
                       {isEditing ? (
                         <div className="space-y-6">
-                          {provider.id === "groq" && (
-                            <div className="space-y-4">
-                              <Label htmlFor={`edit-model-${provider.id}`} className="text-sm font-medium text-gray-700">
-                                Model
-                              </Label>
-                              <div className="w-full max-w-md mx-auto">
-                                <GroqModelSelector
-                                  value={editModel}
-                                  onValueChange={setEditModel}
-                                  apiKey={editKey}
-                                  placeholder="Select a model"
-                                  className="w-full rounded-xl border-2 border-gray-300"
-                                />
-                              </div>
-                            </div>
-                          )}
+
                           <div className="space-y-4">
                             <Label htmlFor={`edit-key-${provider.id}`} className="text-sm font-medium text-gray-700">
                               API Key
@@ -361,13 +342,7 @@ export function BYOKSetup() {
                         </div>
                       ) : (
                         <div className="space-y-6">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            {provider.id === "groq" && (
-                              <div className="space-y-3 bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Model</p>
-                                <p className="text-sm text-gray-900 font-mono break-all">{currentModel}</p>
-                              </div>
-                            )}
+                          <div className="space-y-6">
                             <div className="space-y-3 bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
                               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">API Key</p>
                               <p className="text-sm text-gray-900 font-mono">••••••{status.key.slice(-4)}</p>
@@ -427,24 +402,11 @@ export function BYOKSetup() {
               <CardHeader className="p-6 sm:p-8">
                 <CardTitle className="text-xl font-medium text-gray-900 text-center">Groq API Configuration</CardTitle>
                 <CardDescription className="text-gray-600 text-center mt-2">
-                  Enter your Groq API key and select a model to begin
+                  Enter your Groq API key to begin
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 p-6 sm:p-8 pt-0">
-                <div className="space-y-4">
-                  <Label htmlFor="model" className="text-sm font-medium text-gray-700 text-center block">
-                    Model
-                  </Label>
-                  <div className="w-full max-w-md mx-auto">
-                    <GroqModelSelector
-                      value={selectedModel}
-                      onValueChange={setSelectedModel}
-                      apiKey={groqApiKey}
-                      placeholder="Select a model"
-                      className="w-full rounded-xl border-2 border-gray-300"
-                    />
-                  </div>
-                </div>
+
 
                 <div className="space-y-4">
                   <Label htmlFor="groq-apikey" className="text-sm font-medium text-gray-700 text-center block">
@@ -480,7 +442,7 @@ export function BYOKSetup() {
                 <div className="flex justify-center">
                   <Button
                     onClick={handleAddGroqKey}
-                    disabled={!groqApiKey || !selectedModel || validating}
+                    disabled={!groqApiKey || validating}
                     className="h-12 px-8 bg-neutral-800 hover:bg-neutral-900 text-base font-medium rounded-xl"
                   >
                     {validating ? "Validating..." : "Add Groq API Key"}
