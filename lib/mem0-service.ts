@@ -4,163 +4,100 @@ export interface Mem0Memory {
   metadata?: Record<string, any>;
 }
 
-// Singleton instance to prevent multiple initializations
-let mem0Instance: Mem0Service | null = null;
-
 export class Mem0Service {
   private apiKey: string = "";
   private isInitialized: boolean = false;
-  private batchQueue: Mem0Memory[] = [];
-  private batchTimeout: NodeJS.Timeout | null = null;
-  private isProcessingBatch: boolean = false;
-  private readonly BATCH_DELAY = 2000; // 2 seconds
-  private readonly MAX_BATCH_SIZE = 10;
-  private globalUserId: string = "zen0-user"; // Global user ID for all conversations
+  private globalUserId: string = "zen0-user";
 
   constructor(apiKey: string) {
-    // Only initialize if not already done
-    if (!mem0Instance) {
-      this.apiKey = apiKey;
-      this.isInitialized = true;
-      mem0Instance = this;
-    }
+    this.apiKey = apiKey;
+    this.isInitialized = true;
   }
 
-  // Get singleton instance
-  static getInstance(apiKey?: string): Mem0Service {
-    if (!mem0Instance && apiKey) {
-      mem0Instance = new Mem0Service(apiKey);
-    }
-    return mem0Instance!;
-  }
-
-  // Check if service is ready
   isReady(): boolean {
     return this.isInitialized && !!this.apiKey;
   }
 
-  // Set global user ID (can be customized per user)
   setGlobalUserId(userId: string): void {
     this.globalUserId = userId;
   }
 
-  // Get current global user ID
   getGlobalUserId(): string {
     return this.globalUserId;
   }
 
-  // Add to batch queue (non-blocking)
-  private addToBatch(memory: Mem0Memory): void {
-    this.batchQueue.push(memory);
+  // Intelligent query detection - only search for repeated/personal questions
+  shouldSearchMemories(query: string): boolean {
+    const personalKeywords = [
+      'my', 'me', 'myself', 'name', 'who am i', 'what do you know about me',
+      'remember', 'memory', 'personal', 'preference', 'like', 'love', 'hate',
+      'background', 'history', 'conversation', 'previous', 'before', 'last time',
+      'you said', 'you told me', 'we discussed', 'our conversation'
+    ];
     
-    // Process batch if it reaches max size
-    if (this.batchQueue.length >= this.MAX_BATCH_SIZE) {
-      this.processBatch();
-      return;
-    }
-
-    // Set timeout for delayed processing
-    if (!this.batchTimeout) {
-      this.batchTimeout = setTimeout(() => {
-        this.processBatch();
-      }, this.BATCH_DELAY);
-    }
-  }
-
-  // Process batch asynchronously
-  private async processBatch(): Promise<void> {
-    if (this.isProcessingBatch || this.batchQueue.length === 0) {
-      return;
-    }
-
-    this.isProcessingBatch = true;
+    const generalKnowledgeKeywords = [
+      'what is', 'how to', 'explain', 'tell me about', 'define', 'give me',
+      'interview questions', 'examples', 'tutorial', 'guide', 'steps', 'calculate',
+      'solve', 'math', 'formula', 'equation', 'algorithm', 'code', 'programming'
+    ];
     
-    try {
-      const batch = [...this.batchQueue];
-      this.batchQueue = [];
-      
-      if (this.batchTimeout) {
-        clearTimeout(this.batchTimeout);
-        this.batchTimeout = null;
+    const queryLower = query.toLowerCase();
+    
+    // Check if query contains personal keywords (excluding single letter 'i' from general phrases)
+    const hasPersonalKeywords = personalKeywords.some(keyword => {
+      if (keyword === 'i') {
+        // Only match standalone 'i' or 'i' followed by punctuation/space
+        return /\bi\b/.test(queryLower);
       }
-
-      // Process each memory individually using our proxy API
-      for (const memory of batch) {
-        try {
-          await this.storeMemoryViaProxy(memory);
-        } catch (error) {
-          console.error("Failed to store individual memory:", error);
-          // Continue processing other memories even if one fails
-        }
-      }
-    } catch (error) {
-      console.error("Batch processing failed:", error);
-    } finally {
-      this.isProcessingBatch = false;
+      return queryLower.includes(keyword);
+    });
+    
+    // Check if query contains general knowledge keywords
+    const hasGeneralKeywords = generalKnowledgeKeywords.some(keyword => queryLower.includes(keyword));
+    
+    // If it has personal keywords, always search Mem0
+    if (hasPersonalKeywords) {
+      return true;
     }
+    
+    // If it only has general knowledge keywords, skip Mem0
+    if (hasGeneralKeywords && !hasPersonalKeywords) {
+      return false;
+    }
+    
+    // Default to searching Mem0 for ambiguous queries
+    return true;
   }
 
-  // Store memory via our proxy API (no ping, no CORS)
-  private async storeMemoryViaProxy(memory: Mem0Memory): Promise<void> {
-    try {
-      const response = await fetch('/api/mem0', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action: 'add',
-          messages: memory.messages,
-          user_id: memory.user_id,
-          metadata: memory.metadata
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Failed to store memory: ${response.status} - ${errorText}`);
-        // Don't throw - just log the error to avoid blocking
-        return;
-      }
-
-      const result = await response.json();
-    } catch (error) {
-      console.error("Proxy API call failed:", error);
-      // Don't throw - just log the error to avoid blocking
-      return;
-    }
-  }
-
-  // Store memories from conversation (non-blocking) - NOW GLOBAL
-  async storeMemories(conversationId: string, messages: Array<{ role: string; content: string }>): Promise<void> {
+  async storeConversation(
+    conversationId: string, 
+    messages: Array<{ role: string; content: string }>
+  ): Promise<void> {
     if (!this.isReady()) {
       console.error("Mem0 service not ready");
       return;
     }
 
     try {
-      // Use the last 4 messages for context
       const recentMessages = messages.slice(-4);
       
       const memory: Mem0Memory = {
         messages: recentMessages as Array<{ role: "user" | "assistant"; content: string }>,
-        user_id: this.globalUserId, // Use global user ID instead of conversation-specific
+        user_id: this.globalUserId,
         metadata: { 
           source: "zen0-chat",
-          conversation_id: conversationId, // Keep conversation ID in metadata for reference
+          conversation_id: conversationId,
           timestamp: new Date().toISOString(),
           type: "conversation_memory"
         }
       };
       
-      // Add to batch queue (non-blocking)
-      this.addToBatch(memory);
+      await this.storeMemory(memory);
     } catch (error) {
-      console.error("Failed to add memory to batch:", error);
+      console.error("Failed to store conversation:", error);
     }
   }
 
-  // Store user profile information (persistent across all conversations)
   async storeUserProfile(profileInfo: string, metadata?: Record<string, any>): Promise<void> {
     if (!this.isReady()) {
       console.error("Mem0 service not ready");
@@ -179,125 +116,68 @@ export class Mem0Service {
         }
       };
       
-      // Add to batch queue (non-blocking)
-      this.addToBatch(memory);
+      await this.storeMemory(memory);
     } catch (error) {
-      console.error("Failed to add user profile to batch:", error);
+      console.error("Failed to store user profile:", error);
     }
   }
 
-  // Comprehensive memory search using Mem0 v2 API with advanced filtering
-  async searchMemories(query: string, userId?: string, limit: number = 10, threshold: number = 0.3): Promise<string[]> {
+  async searchMemories(
+    query: string, 
+    userId?: string, 
+    limit: number = 5, 
+    threshold: number = 0.3
+  ): Promise<string[]> {
     if (!this.isReady()) {
       console.error("Mem0 service not ready");
       return [];
     }
 
+    // Only search if this query should use memories
+    if (!this.shouldSearchMemories(query)) {
+      console.log(`⏭️ Skipping Mem0 search for query: "${query}" - not a personal/repeated question`);
+      return [];
+    }
+
     try {
-      // Use global user ID if no specific userId provided
       const searchUserId = userId || this.globalUserId;
       
-      // Enhanced search with multiple strategies for comprehensive coverage
-      const searchBody = {
-        action: 'search',
-        query,
-        version: 'v2',
-        filters: {
-          AND: [
-            {
-              user_id: searchUserId
-            }
-          ]
-        },
-        limit,
-        threshold, // Minimum similarity score
-        rerank: true, // Enable reranking for better relevance
-        keyword_search: true // Enable keyword search for comprehensive coverage
-      };
-      
-      console.log(`🔍 Mem0 search request:`, { query, limit, threshold, rerank: true, keyword_search: true });
+      console.log(`🔍 Searching Mem0 for personal query: "${query}"`);
       
       const response = await fetch('/api/mem0', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(searchBody)
+        body: JSON.stringify({
+          action: 'search',
+          query,
+          version: 'v2',
+          filters: {
+            AND: [{ user_id: searchUserId }]
+          },
+          limit,
+          threshold,
+          rerank: true,
+          keyword_search: true
+        })
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Search failed:", response.status, errorText);
-        
-        // Try to parse error details for better debugging
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.details) {
-            console.error("Error details:", errorData.details);
-          }
-          if (errorData.suggestion) {
-            console.error("Suggestion:", errorData.suggestion);
-          }
-        } catch (parseError) {
-          // Error text is not JSON, use as is
-        }
-        
-        // Return empty array on failure - don't throw to avoid blocking
+        console.error("Search failed:", response.status);
         return [];
       }
 
       const results = await response.json();
-
-      // Handle v2 search response format
-      if (results && results.memories && Array.isArray(results.memories)) {
-        return results.memories.map((result: any) => {
-          if (result.memory) return result.memory;
-          if (result.text) return result.text;
-          if (typeof result === 'string') return result;
-          return JSON.stringify(result);
-        });
-      }
-
-      // Handle v2 search response format (alternative structure)
-      if (results && results.results && Array.isArray(results.results)) {
-        return results.results.map((result: any) => {
-          if (result.memory) return result.memory;
-          if (result.text) return result.text;
-          if (typeof result === 'string') return result;
-          return JSON.stringify(result);
-        });
-      }
-
-      // Fallback for other response formats
-      if (results && Array.isArray(results)) {
-        return results.map((result: any) => {
-          if (result.memory) return result.memory;
-          if (result.content) return result.content;
-          if (result.text) return result.text;
-          if (typeof result === 'string') return result;
-          return JSON.stringify(result);
-        });
-      }
-
-      return [];
+      const memories = this.extractMemoryText(results);
+      console.log(`✅ Found ${memories.length} relevant memories`);
+      return memories;
     } catch (error) {
       console.error("Memory search failed:", error);
-      
-      // Log more details about the error
-      if (error instanceof Error) {
-        console.error("Error details:", {
-          message: error.message,
-          name: error.name,
-          stack: error.stack
-        });
-      }
-      
-      // Return empty array on failure - don't throw to avoid blocking
       return [];
     }
   }
 
-  // Get all memories for a user using our proxy API - NOW GLOBAL
   async getAllMemories(userId?: string): Promise<any[]> {
     if (!this.isReady()) {
       console.error("Mem0 service not ready");
@@ -318,8 +198,7 @@ export class Mem0Service {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Get all failed:", response.status, errorText);
+        console.error("Get all failed:", response.status);
         return [];
       }
 
@@ -331,7 +210,6 @@ export class Mem0Service {
     }
   }
 
-  // Delete all memories for a user using our proxy API - NOW GLOBAL
   async deleteAllMemories(userId?: string): Promise<boolean> {
     if (!this.isReady()) {
       console.error("Mem0 service not ready");
@@ -352,8 +230,7 @@ export class Mem0Service {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Delete all failed:", response.status, errorText);
+        console.error("Delete all failed:", response.status);
         return false;
       }
 
@@ -365,25 +242,64 @@ export class Mem0Service {
     }
   }
 
-  // Force process any remaining batch
-  async flushBatch(): Promise<void> {
-    if (this.batchQueue.length > 0) {
-      await this.processBatch();
+  private async storeMemory(memory: Mem0Memory): Promise<void> {
+    try {
+      const response = await fetch('/api/mem0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'add',
+          messages: memory.messages,
+          user_id: memory.user_id,
+          metadata: memory.metadata
+        })
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to store memory: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Failed to store memory:", error);
     }
   }
 
-  // Cleanup method
-  cleanup(): void {
-    try {
-      // Process any remaining batch before cleanup
-      this.flushBatch();
-      
-      this.apiKey = "";
-      this.isInitialized = false;
-      mem0Instance = null;
-    } catch (error) {
-      console.error("Failed to cleanup Mem0 service:", error);
+  private extractMemoryText(results: any): string[] {
+    if (results?.memories && Array.isArray(results.memories)) {
+      return results.memories.map((result: any) => {
+        if (result.memory) return result.memory;
+        if (result.text) return result.text;
+        if (typeof result === 'string') return result;
+        return JSON.stringify(result);
+      });
     }
+
+    if (results?.results && Array.isArray(results.results)) {
+      return results.results.map((result: any) => {
+        if (result.memory) return result.memory;
+        if (result.text) return result.text;
+        if (typeof result === 'string') return result;
+        return JSON.stringify(result);
+      });
+    }
+
+    if (results && Array.isArray(results)) {
+      return results.map((result: any) => {
+        if (result.memory) return result.memory;
+        if (result.content) return result.content;
+        if (result.text) return result.text;
+        if (typeof result === 'string') return result;
+        return JSON.stringify(result);
+      });
+    }
+
+    return [];
+  }
+
+  cleanup(): void {
+    this.apiKey = "";
+    this.isInitialized = false;
   }
 }
 

@@ -51,7 +51,7 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 
 ### Key Components
 - **LocalStorageService**: Handles all data persistence
-- **Mem0Service**: Manages AI memory operations and batching
+- **Mem0Service**: Manages AI memory operations for personal context
 - **Chat Interface**: Main chat functionality with memory integration
 - **API Routes**: Simplified endpoints for Groq API communication
 - **BYOK Setup**: API key configuration for both Groq and Mem0
@@ -90,9 +90,9 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 Mem0 AI Memory provides intelligent, persistent memory across conversations. It learns from your interactions and provides relevant context for better, more personalized responses.
 
 ### Features
-- **Intelligent Context Retrieval**: Automatically finds relevant memories based on conversation topics
-- **Persistent Learning**: Remembers preferences, facts, and conversation patterns across sessions
-- **Efficient Batching**: Optimized memory storage with intelligent batching for performance
+- **Personal Context Retrieval**: Finds relevant memories for personal questions and preferences
+- **Persistent Learning**: Remembers user preferences, facts, and conversation patterns across sessions
+- **Simple & Clean**: Straightforward memory operations without unnecessary complexity
 - **Privacy-First**: All memory operations happen locally with optional cloud sync
 
 ### Setup
