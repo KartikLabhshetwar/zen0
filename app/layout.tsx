@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   keywords: ["AI", "chat", "memory", "conversation", "artificial intelligence", "chatbot"],
   authors: [{ name: "zen0" }],
   creator: "zen0",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
   openGraph: {
     title: "zen0",
     description: "AI conversations with perfect memory",

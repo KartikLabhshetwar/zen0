@@ -1,0 +1,17 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- zen0 Icon matching the component design -->
+  <g transform="translate(16, 16)">
+    <!-- Outer circle -->
+    <circle cx="0" cy="0" r="13.33" stroke="#1f2937" stroke-width="2" fill="none"/>
+    <!-- Second circle with gap -->
+    <circle cx="0" cy="0" r="10" stroke="#1f2937" stroke-width="2" fill="none" stroke-dasharray="31.4 2.6"/>
+    <!-- Third circle -->
+    <circle cx="0" cy="0" r="6.67" stroke="#1f2937" stroke-width="2" fill="none"/>
+    <!-- Fourth circle -->
+    <circle cx="0" cy="0" r="3.33" stroke="#1f2937" stroke-width="2" fill="none"/>
+    <!-- Small arc at top -->
+    <path d="M0 -3.33 A0.67 0.67 0 0 1 0.67 -2.67 A0.67 0.67 0 0 1 0 -2" stroke="#1f2937" stroke-width="2" fill="none"/>
+    <!-- Small circle at bottom -->
+    <circle cx="0" cy="4.67" r="0.67" fill="#1f2937"/>
+  </g>
+</svg>
