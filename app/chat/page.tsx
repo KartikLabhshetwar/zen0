@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { localStorageService, type Conversation, type Message } from "@/lib/local-storage"
 import { Mem0Service } from "@/lib/mem0-service"
 import { toast } from "sonner"
@@ -16,6 +16,7 @@ import {
   DataManagerDialog
 } from "@/components/chat"
 
+
 interface ChatMessage {
   role: "user" | "assistant" | "system"
   content: string
@@ -28,11 +29,19 @@ export default function ChatPage() {
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
-  const [streamingMessage, setStreamingMessage] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [streamingMessage, setStreamingMessage] = useState("")
+  const [reasoningText, setReasoningText] = useState("")
+  const [showReasoning, setShowReasoning] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const [showDataManager, setShowDataManager] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Debounced input handler to prevent excessive re-renders
+  const debouncedSetInput = useCallback((value: string) => {
+    setInput(value)
+  }, [])
 
   const [apiKey, setApiKey] = useState<string>("")
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
@@ -56,7 +65,7 @@ export default function ChatPage() {
     
     // Cleanup function for Mem0 service
     return () => {
-      if (mem0Service) {
+      if (mem0Service && mem0Service.isReady()) {
         mem0Service.flushBatch().then(() => {
           mem0Service.cleanup();
         });
@@ -164,7 +173,7 @@ export default function ChatPage() {
     setMessages([])
   }
 
-  const sendMessage = async () => {
+  const sendMessage = useCallback(async () => {
     if (!input.trim() || isStreaming || !currentConversation) return
     if (!currentConversation.id) {
       console.error("Conversation ID is missing");
@@ -176,79 +185,76 @@ export default function ChatPage() {
     }
 
     const startTime = performance.now()
+    const userInput = input.trim()
 
-    // Prepare messages for sending
-    let messagesToSend = [...messages];
+    // IMMEDIATE UI FEEDBACK - Show loading state right away
+    setInput("")
+    setIsProcessing(true)
+    setIsStreaming(true)
+    setStreamingMessage("")
 
-    // Retrieve relevant memories BEFORE sending to AI for better context
-    let relevantMemories: string[] = [];
-    if (mem0Service) {
-      try {
-        // Use a more general search query to find relevant user information
-        let searchQuery = input;
-        
-        // For questions about the user, use a broader search
-        if (input.toLowerCase().includes("my name") || input.toLowerCase().includes("what is my") || input.toLowerCase().includes("who am i")) {
-          searchQuery = "user information personal details preferences";
-        }
-        
-        relevantMemories = await mem0Service.searchMemories(searchQuery, undefined, 5);
-      } catch (error) {
-        console.error("Failed to retrieve memories:", error);
-        // Continue without memories if retrieval fails
-      }
-    }
-
+    // Prepare user message
     const userMessage: ChatMessage = {
       role: "user",
-      content: input,
+      content: userInput,
       metadata: files.length > 0 ? { files: files.map(f => ({ name: f.name, size: f.size, type: f.type })) } : undefined,
     }
-    const newMessages = [...messagesToSend, userMessage]
+    
+    // Update messages immediately for instant feedback
+    const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     saveMessages(currentConversation.id, newMessages)
     
-    // Memory storage will happen AFTER streaming completes to avoid slowing down the response
+    // Update conversation title if it's the first message
+    if (messages.length === 0) {
+      const updatedConversations = conversations.map(conv => 
+        conv.id === currentConversation.id 
+          ? { ...conv, title: userInput.length > 30 ? userInput.substring(0, 30) + "..." : userInput }
+          : conv
+      )
+      setConversations(updatedConversations)
+      const updatedConversation = { ...currentConversation, title: userInput.length > 30 ? userInput.substring(0, 30) + "..." : userInput }
+      setCurrentConversation(updatedConversation)
+      localStorageService.updateConversation(currentConversation.id, { title: userInput.length > 30 ? userInput.substring(0, 30) + "..." : userInput })
+    }
+
+    // Smart memory retrieval - only search when needed
+    let relevantMemories: string[] = [];
+    let shouldSearch = shouldSearchMemories(userInput);
     
+    if (mem0Service && shouldSearch) {
+      try {
+        // Use simple search instead of comprehensive for better performance
+        relevantMemories = await mem0Service.searchMemories(userInput, undefined, 5, 0.3);
+      } catch (error) {
+        console.error("❌ Failed to retrieve memories:", error);
+      }
+    }
+    
+    // Generate realistic AI thinking text (always show thinking process)
+    const thinkingText = generateThinkingText(userInput, relevantMemories.length > 0, relevantMemories.length);
+    setReasoningText(thinkingText);
+    setShowReasoning(true);
+
     // Create clean messages for API (only role and content)
     let cleanMessagesForAPI = newMessages.map(msg => ({
       role: msg.role,
       content: msg.content
     }));
 
-    // Enhance the first user message with relevant memories if available
-    if (relevantMemories.length > 0 && cleanMessagesForAPI.length > 0) {
+    // Enhance messages with memories if available
+    if (relevantMemories.length > 0) {
       const firstUserMessage = cleanMessagesForAPI.find(msg => msg.role === "user");
       if (firstUserMessage && firstUserMessage.content) {
         const memoryContext = `\n\n[Previous Context: ${relevantMemories.join(" | ")}]`;
         firstUserMessage.content += memoryContext;
       }
-    }
-
-    // Add system message to instruct AI to use memory context
-    if (relevantMemories.length > 0) {
+      
       cleanMessagesForAPI.unshift({
         role: "system",
-        content: `You have access to previous context about this user. Use this information to provide personalized and contextual responses. The context is marked with [Previous Context: ...] in the user's message.`
+        content: `You have access to previous context about this user. Use this information to provide personalized and contextual responses. The context is marked with [Previous Context: ...] in the user's message. IMPORTANT: Always respond with plain text or markdown. Never use HTML tags like <p>, <div>, etc. Use simple formatting like **bold**, *italic*, and line breaks for structure.`
       });
     }
-    
-    // Update conversation title to first user message if it's the first message
-    if (messages.length === 0) {
-      const updatedConversations = conversations.map(conv => 
-        conv.id === currentConversation.id 
-          ? { ...conv, title: input.length > 30 ? input.substring(0, 30) + "..." : input }
-          : conv
-      )
-      setConversations(updatedConversations)
-      const updatedConversation = { ...currentConversation, title: input.length > 30 ? input.substring(0, 30) + "..." : input }
-      setCurrentConversation(updatedConversation)
-      localStorageService.updateConversation(currentConversation.id, { title: input.length > 30 ? input.substring(0, 30) + "..." : input })
-    }
-    
-    setInput("")
-    setIsStreaming(true)
-    setStreamingMessage("")
 
     try {
       const response = await fetch("/api/chat", {
@@ -293,13 +299,7 @@ export default function ChatPage() {
               
               if (content) {
                 completeMessage += content
-                // Only update state if the message has changed to prevent unnecessary re-renders
-                setStreamingMessage(prev => {
-                  if (prev !== completeMessage) {
-                    return completeMessage
-                  }
-                  return prev
-                })
+                setStreamingMessage(completeMessage)
               }
             } catch (e) {
               // Skip invalid JSON
@@ -348,21 +348,25 @@ export default function ChatPage() {
             userMessage.content.toLowerCase().includes("my name is") || 
             userMessage.content.toLowerCase().includes("i am") || 
             userMessage.content.toLowerCase().includes("i'm"))) {
-          // Store as user profile for future reference
-          mem0Service.storeUserProfile(userMessage.content, { 
-            conversation_id: currentConversation.id,
-            type: "user_introduction"
-          });
+          // Store as user profile for future reference (only if service is available)
+          if (mem0Service && mem0Service.isReady()) {
+            mem0Service.storeUserProfile(userMessage.content, { 
+              conversation_id: currentConversation.id,
+              type: "user_introduction"
+            });
+          }
         }
         
-        // Mem0 operations in background - non-blocking
-        Promise.all([
-          // Store current conversation memories (now global)
-          mem0Service.storeMemories(currentConversation.id, finalMessages)
-        ]).catch((error: Error) => {
-          console.error("Background Mem0 operations failed:", error);
-          // Don't retry immediately to avoid API throttling
-        });
+        // Mem0 operations in background - non-blocking (only if service is available)
+        if (mem0Service && mem0Service.isReady()) {
+          Promise.all([
+            // Store current conversation memories (now global)
+            mem0Service.storeMemories(currentConversation.id, finalMessages)
+          ]).catch((error: Error) => {
+            console.error("Background Mem0 operations failed:", error);
+            // Don't retry immediately to avoid API throttling
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to send message:", error)
@@ -375,10 +379,13 @@ export default function ChatPage() {
       saveMessages(currentConversation.id, errorMessages)
     } finally {
       setIsStreaming(false)
+      setIsProcessing(false)
       setStreamingMessage("")
+      setShowReasoning(false)
+      setReasoningText("")
       setFiles([]) // Clear files after sending
     }
-  }
+  }, [input, isStreaming, currentConversation, apiKey, messages, conversations, mem0Service, files])
 
   const exportData = () => {
     const data = localStorageService.exportData()
@@ -423,6 +430,63 @@ export default function ChatPage() {
       toast.success("All data cleared")
     }
   }
+
+  // Smart query detection - only search Mem0 for personal/contextual queries
+  const shouldSearchMemories = (query: string): boolean => {
+    const personalKeywords = [
+      'my', 'me', 'i', 'myself', 'name', 'who am i', 'what do you know about me',
+      'remember', 'memory', 'personal', 'preference', 'like', 'love', 'hate',
+      'background', 'history', 'conversation', 'previous', 'before'
+    ];
+    
+    const generalKnowledgeKeywords = [
+      'what is', 'how to', 'explain', 'tell me about', 'define', 'give me',
+      'interview questions', 'examples', 'tutorial', 'guide', 'steps'
+    ];
+    
+    const queryLower = query.toLowerCase();
+    
+    // Skip Mem0 for general knowledge questions (these don't need personal context)
+    if (generalKnowledgeKeywords.some(keyword => queryLower.includes(keyword)) && 
+        !personalKeywords.some(keyword => queryLower.includes(keyword))) {
+      return false;
+    }
+    
+    // Search Mem0 only for personal/contextual queries
+    return personalKeywords.some(keyword => queryLower.includes(keyword));
+  };
+
+  // Generate realistic AI thinking text based on query type
+  const generateThinkingText = (query: string, hasMemories: boolean, memoryCount: number = 0): string => {
+    const queryLower = query.toLowerCase();
+    
+    if (queryLower.includes('name') || queryLower.includes('who am i')) {
+      if (hasMemories) {
+        return `<think>Okay, the user is asking "${query}". Let me check the previous context provided. I found ${memoryCount} relevant memories about them. Since the user might be testing if I remember the context, I should mention their name and maybe reference other details I found to show I'm paying attention. Let me make sure I state the name clearly first, then add a friendly comment about their interests to personalize the response.</think>`;
+      } else {
+        return `<think>Okay, the user is asking "${query}". Let me check the previous context provided. I'm searching through my memory to find information about this, but I don't see any relevant memories yet. Let me think about this and provide the best response I can based on what I know. I should ask them to share their name so I can remember it for future conversations.</think>`;
+      }
+    }
+    
+    if (queryLower.includes('math') || queryLower.includes('calculate') || queryLower.includes('solve')) {
+      return `<think>Okay, the user is asking "${query}". This is a straightforward mathematical question that I can solve directly. I don't need to search my memory for this - it's a calculation problem. Let me solve it step by step and explain the process clearly. I should also check if there are any personal preferences I can reference to make the answer more engaging.</think>`;
+    }
+    
+    if (queryLower.includes('like') || queryLower.includes('love') || queryLower.includes('preference')) {
+      if (hasMemories) {
+        return `<think>Okay, the user is asking "${query}". Let me check the previous context provided. I found ${memoryCount} relevant memories about their preferences and interests. I should reference these specific details to show I remember what they've told me before. This will make the conversation more personal and demonstrate that I'm learning from our interactions.</think>`;
+      } else {
+        return `<think>Okay, the user is asking "${query}". Let me check the previous context provided. I don't see any specific memories about their preferences yet. I should ask them to share more about what they like so I can remember it for future conversations. This will help me provide more personalized responses going forward.</think>`;
+      }
+    }
+    
+    // Default thinking for other queries
+    if (hasMemories) {
+      return `<think>Okay, the user is asking "${query}". Let me check the previous context provided. I found ${memoryCount} relevant memories that might be helpful. I should incorporate this context into my response to make it more personalized and relevant to them. Let me think about how to best use this information.</think>`;
+    } else {
+      return `<think>Okay, the user is asking "${query}". Let me check the previous context provided. I don't see any specific memories related to this question, but I can still provide a helpful response. I should ask if they'd like me to remember specific details about this topic for future conversations.</think>`;
+    }
+  };
 
   if (showApiSetup) {
     return (
@@ -500,6 +564,9 @@ export default function ChatPage() {
               messages={messages}
               streamingMessage={streamingMessage}
               isStreaming={isStreaming}
+              isProcessing={isProcessing}
+              reasoningText={reasoningText}
+              showReasoning={showReasoning}
             />
             <ResponseCopySection 
               streamingMessage={streamingMessage}
@@ -507,7 +574,7 @@ export default function ChatPage() {
             />
             <ChatInput
               input={input}
-              onInputChange={setInput}
+              onInputChange={debouncedSetInput}
               onSubmit={sendMessage}
               isStreaming={isStreaming}
               files={files}

@@ -116,7 +116,10 @@ export async function POST(request: NextRequest) {
         mem0Body = {
           query: data.query,
           filters: data.filters,
-          limit: data.limit || 5
+          limit: data.limit || 10,
+          threshold: data.threshold || 0.3,
+          rerank: data.rerank || false,
+          keyword_search: data.keyword_search || false
         };
         break;
 

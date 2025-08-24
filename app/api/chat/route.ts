@@ -20,13 +20,23 @@ export async function POST(req: NextRequest) {
       model,
       messages: cleanMessages,
       stream: true,
+      // Add performance optimizations
+      max_tokens: 4000, // Limit response length for faster streaming
+      temperature: 0.7, // Balanced creativity vs speed
     }
+
+    // Use AbortController for better timeout handling
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
     const response = await fetch(apiUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
+      signal: controller.signal,
     })
+
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       let errorMessage = `API Error: ${response.statusText}`
@@ -47,15 +57,23 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Return streaming response immediately
     return new Response(response.body, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no", // Disable nginx buffering for better streaming
       },
     })
   } catch (error) {
     console.error("Chat API error:", error)
+    
+    // Handle abort errors gracefully
+    if (error instanceof Error && error.name === 'AbortError') {
+      return new Response("Request timeout", { status: 408 })
+    }
+    
     return new Response("Internal Server Error", { status: 500 })
   }
 }

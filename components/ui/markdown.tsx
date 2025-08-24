@@ -14,8 +14,18 @@ export type MarkdownProps = {
 }
 
 function parseMarkdownIntoBlocks(markdown: string): string[] {
-  const tokens = marked.lexer(markdown)
-  return tokens.map((token) => token.raw)
+  try {
+    // Handle the case when markdown is undefined or not a string
+    if (!markdown || typeof markdown !== 'string') {
+      return [];
+    }
+    
+    // For markdown content, return as single block to preserve structure
+    return [markdown];
+  } catch (error) {
+    console.warn('Markdown parsing failed, using fallback:', error);
+    return [markdown];
+  }
 }
 
 function extractLanguage(className?: string): string {

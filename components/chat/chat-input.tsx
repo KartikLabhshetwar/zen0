@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useCallback, memo } from "react"
 import { Button } from "@/components/ui/button"
-import { Paperclip, X, ArrowUp, Square } from "lucide-react"
+import { Paperclip, X, ArrowUp } from "lucide-react"
 import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction } from "@/components/ui/prompt-input"
 import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
 
@@ -14,7 +14,7 @@ interface ChatInputProps {
   onFileRemove: (index: number) => void
 }
 
-export function ChatInput({
+export const ChatInput = memo(function ChatInput({
   input,
   onInputChange,
   onSubmit,
@@ -23,9 +23,19 @@ export function ChatInput({
   onFilesChange,
   onFileRemove
 }: ChatInputProps) {
-  const handleFileChange = (newFiles: File[]) => {
+  const handleFileChange = useCallback((newFiles: File[]) => {
     onFilesChange([...files, ...newFiles])
-  }
+  }, [files, onFilesChange])
+
+  const handleFileRemove = useCallback((index: number) => {
+    onFileRemove(index)
+  }, [onFileRemove])
+
+  const handleSubmit = useCallback(() => {
+    if (!isStreaming && input.trim()) {
+      onSubmit()
+    }
+  }, [isStreaming, input, onSubmit])
 
   return (
     <div className="border-t border-gray-200 p-4">
@@ -38,7 +48,7 @@ export function ChatInput({
             value={input}
             onValueChange={onInputChange}
             isLoading={isStreaming}
-            onSubmit={onSubmit}
+            onSubmit={handleSubmit}
             className="w-full"
           >
             {files.length > 0 && (
@@ -62,10 +72,10 @@ export function ChatInput({
                       </span>
                     </div>
                     <button
-                      onClick={() => onFileRemove(index)}
+                      onClick={() => handleFileRemove(index)}
                       className="hover:bg-gray-200 rounded-full p-1 transition-colors flex-shrink-0"
                     >
-                      <X className="w-3.5 h-3.5 text-gray-500" />
+                      <X className="w-3.5 h-3.5 text-gray-600" />
                     </button>
                   </div>
                 ))}
@@ -93,15 +103,11 @@ export function ChatInput({
                 <Button
                   variant="default"
                   size="icon"
-                  className="h-9 w-9 rounded-full bg-neutral-700 hover:bg-neutral-900"
-                  onClick={onSubmit}
+                  className="h-9 w-9 rounded-full bg-neutral-700 hover:bg-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleSubmit}
                   disabled={isStreaming || (!input.trim() && files.length === 0)}
                 >
-                  {isStreaming ? (
-                    <Square className="w-4 h-4 fill-current" />
-                  ) : (
-                    <ArrowUp className="w-4 h-4" />
-                  )}
+                  <ArrowUp className="w-4 h-4" />
                 </Button>
               </PromptInputAction>
             </PromptInputActions>
@@ -138,4 +144,4 @@ export function ChatInput({
       </div>
     </div>
   )
-}
+})

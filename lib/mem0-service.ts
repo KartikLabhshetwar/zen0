@@ -186,8 +186,8 @@ export class Mem0Service {
     }
   }
 
-  // Search memories using our proxy API (no ping, no CORS) - NOW GLOBAL
-  async searchMemories(query: string, userId?: string, limit: number = 5): Promise<string[]> {
+  // Comprehensive memory search using Mem0 v2 API with advanced filtering
+  async searchMemories(query: string, userId?: string, limit: number = 10, threshold: number = 0.3): Promise<string[]> {
     if (!this.isReady()) {
       console.error("Mem0 service not ready");
       return [];
@@ -197,24 +197,32 @@ export class Mem0Service {
       // Use global user ID if no specific userId provided
       const searchUserId = userId || this.globalUserId;
       
+      // Enhanced search with multiple strategies for comprehensive coverage
+      const searchBody = {
+        action: 'search',
+        query,
+        version: 'v2',
+        filters: {
+          AND: [
+            {
+              user_id: searchUserId
+            }
+          ]
+        },
+        limit,
+        threshold, // Minimum similarity score
+        rerank: true, // Enable reranking for better relevance
+        keyword_search: true // Enable keyword search for comprehensive coverage
+      };
+      
+      console.log(`🔍 Mem0 search request:`, { query, limit, threshold, rerank: true, keyword_search: true });
+      
       const response = await fetch('/api/mem0', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          action: 'search',
-          query,
-          version: 'v2',
-          filters: {
-            AND: [
-              {
-                user_id: searchUserId
-              }
-            ]
-          },
-          limit
-        })
+        body: JSON.stringify(searchBody)
       });
 
       if (!response.ok) {

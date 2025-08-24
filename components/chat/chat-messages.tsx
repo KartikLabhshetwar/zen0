@@ -1,7 +1,9 @@
 import { useRef, useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Markdown } from "@/components/ui/markdown"
+import { Loader } from "@/components/ui/loader"
 import { ChatMessage } from "./chat-message"
+import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ui/reasoning"
 
 interface ChatMessagesProps {
   messages: Array<{
@@ -12,9 +14,12 @@ interface ChatMessagesProps {
   }>
   streamingMessage: string
   isStreaming: boolean
+  isProcessing?: boolean
+  reasoningText?: string
+  showReasoning?: boolean
 }
 
-export function ChatMessages({ messages, streamingMessage, isStreaming }: ChatMessagesProps) {
+export function ChatMessages({ messages, streamingMessage, isStreaming, isProcessing = false, reasoningText = "", showReasoning = false }: ChatMessagesProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -51,11 +56,50 @@ export function ChatMessages({ messages, streamingMessage, isStreaming }: ChatMe
           <ChatMessage key={index} message={message} index={index} />
         ))}
 
+        {/* Show AI thinking process when available, otherwise show shimmer loading */}
+        {isProcessing && (
+          showReasoning && reasoningText && reasoningText.includes('<think>') ? (
+            <Reasoning isStreaming={isProcessing} open={true}>
+              <ReasoningTrigger>AI is thinking...</ReasoningTrigger>
+              <ReasoningContent 
+                className="ml-2 border-l-2 border-l-slate-200 px-2 pb-1 dark:border-l-slate-700"
+                markdown={false}
+              >
+                <div className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                  {reasoningText.match(/<think>([\s\S]*?)<\/think>/)?.[1]?.trim() || 'Thinking...'}
+                </div>
+              </ReasoningContent>
+            </Reasoning>
+          ) : (
+            <div className="flex items-center gap-2 text-gray-600 text-sm">
+              <Loader variant="text-shimmer" size="sm" />
+              <span>Thinking...</span>
+            </div>
+          )
+        )}
+
+        {/* Show streaming message when available */}
         {streamingMessage && (
           <div className="w-full max-w-5xl rounded-2xl p-6 text-gray-900">
-            <Markdown className="max-w-none">
-              {streamingMessage}
-            </Markdown>
+            {(() => {
+              // Check if the content contains HTML tags
+              if (streamingMessage.includes('<') && streamingMessage.includes('>')) {
+                // If it's HTML, render it safely with custom CSS
+                return (
+                  <div 
+                    className="prose prose-sm max-w-none text-gray-800 leading-relaxed chat-html-content"
+                    dangerouslySetInnerHTML={{ __html: streamingMessage }}
+                  />
+                );
+              } else {
+                // If it's regular text/markdown, use the Markdown component
+                return (
+                  <Markdown className="max-w-none">
+                    {streamingMessage}
+                  </Markdown>
+                );
+              }
+            })()}
           </div>
         )}
         <div ref={messagesEndRef} />
