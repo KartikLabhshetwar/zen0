@@ -6,7 +6,6 @@ import { Mem0Service } from "@/lib/mem0-service"
 import { toast } from "sonner"
 import {
   Sidebar,
-  ChatHeader,
   ChatMessages,
   ChatInput,
   WelcomeScreen,
@@ -234,6 +233,8 @@ export default function ChatPage() {
       setCurrentConversation(null)
       setMessages([])
     }
+    
+    toast.success("Conversation deleted successfully!")
   }
 
   const createNewConversation = () => {
@@ -257,6 +258,8 @@ export default function ChatPage() {
     
     // Ensure the selected model stays consistent
     setSelectedModel(modelToUse)
+    
+    toast.success("New conversation created!")
   }
 
   const handleModelChange = useCallback((model: string) => {
@@ -288,6 +291,8 @@ export default function ChatPage() {
     
     // Also save the model preference to user settings for future use
     localStorageService.updateDefaultModel(model)
+    
+    toast.success(`Model changed to ${model}`)
   }, [currentConversation, conversations, localStorageService])
 
   const sendMessage = useCallback(async () => {
@@ -623,10 +628,7 @@ export default function ChatPage() {
 
         {currentConversation ? (
           <>
-            <div className="flex-shrink-0">
-              <ChatHeader conversation={currentConversation} />
-            </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 mt-10 overflow-hidden">
               <ChatMessages 
                 messages={messages}
                 streamingMessage={streamingMessage}

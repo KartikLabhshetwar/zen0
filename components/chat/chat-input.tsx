@@ -5,6 +5,7 @@ import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction
 import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useGroqModels } from "@/lib/hooks/use-groq-models"
+import { toast } from "sonner"
 
 interface ChatInputProps {
   input: string
@@ -46,11 +47,16 @@ export const ChatInput = memo(function ChatInput({
 
   const handleFileChange = useCallback((newFiles: File[]) => {
     onFilesChange([...files, ...newFiles])
+    if (newFiles.length > 0) {
+      toast.success(`${newFiles.length} file${newFiles.length > 1 ? 's' : ''} added`)
+    }
   }, [files, onFilesChange])
 
   const handleFileRemove = useCallback((index: number) => {
+    const fileName = files[index]?.name || 'File'
     onFileRemove(index)
-  }, [onFileRemove])
+    toast.success(`${fileName} removed`)
+  }, [onFileRemove, files])
 
   const handleSubmit = useCallback(() => {
     if (!isStreaming && input.trim()) {
@@ -60,6 +66,7 @@ export const ChatInput = memo(function ChatInput({
 
   const handleModelSelect = useCallback((modelId: string) => {
     onModelChange?.(modelId)
+    toast.success(`Model selected: ${modelId}`)
   }, [onModelChange])
 
   const formatContextWindow = (contextWindow: number) => {

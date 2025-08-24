@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { Header } from "@/components/header"
+import { Toaster } from "@/components/ui/sonner"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://zen0.vercel.app"),
@@ -63,6 +64,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <Header />
         {children}
+        <Toaster />
       </body>
     </html>
   )

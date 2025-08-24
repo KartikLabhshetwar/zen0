@@ -72,9 +72,13 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
           variant="ghost"
           size="icon"
           className="h-8 w-8 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/50 transition-all duration-200 rounded-2xl hover:scale-105"
-          onClick={() => {
-            navigator.clipboard.writeText(message.content);
-            toast.success("Copied to clipboard!");
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(message.content);
+              toast.success("Message copied to clipboard!");
+            } catch (error) {
+              toast.error("Failed to copy message");
+            }
           }}
         >
           <Copy className="h-4 w-4" />
