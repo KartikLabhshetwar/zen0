@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs'
 
 const MEM0_API_KEY = process.env.MEM0_API_KEY;
 const MEM0_BASE_URL = 'https://api.mem0.ai';

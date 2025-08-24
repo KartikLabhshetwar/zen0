@@ -1,5 +1,8 @@
 import type { NextRequest } from "next/server"
 
+// Disable Edge functions - use Node.js runtime for better compatibility and memory
+export const runtime = 'nodejs'
+
 export async function POST(req: NextRequest) {
   try {
     const { messages, model, apiKey, conversationId } = await req.json()
