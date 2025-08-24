@@ -30,7 +30,7 @@ export function Sidebar({
   onShowDataManager
 }: SidebarProps) {
   return (
-    <div className={`${sidebarCollapsed ? 'w-[80%] -translate-x-full' : 'w-[80%] translate-x-0'} md:w-80 md:translate-x-0 md:static md:relative absolute z-30 h-full bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
+    <div className={`${sidebarCollapsed ? 'w-[80%] -translate-x-full' : 'w-[80%] translate-x-0'} md:w-80 md:translate-x-0 md:relative absolute z-30 h-full bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
       {/* Sidebar Header */}
       <div className="flex-shrink-0 p-4 border-b border-slate-200">
         <div className="flex flex-col items-center gap-3 mb-4">

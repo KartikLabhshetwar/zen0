@@ -50,8 +50,8 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
   }, [streamingMessage, isStreaming])
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 h-full">
-      <div className="space-y-8 max-w-5xl mx-auto pb-4">
+    <ScrollArea ref={scrollAreaRef} className="flex-1 h-full p-2 sm:p-4">
+      <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto pb-4">
         {messages.map((message, index) => (
           <ChatMessage key={index} message={message} index={index} />
         ))}
@@ -65,13 +65,13 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
                 className="ml-2 border-l-2 border-l-slate-200 px-2 pb-1 dark:border-l-slate-700"
                 markdown={false}
               >
-                <div className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                <div className="text-gray-700 dark:text-gray-300 text-base leading-relaxed whitespace-pre-wrap">
                   {reasoningText.match(/<think>([\s\S]*?)<\/think>/)?.[1]?.trim() || 'Thinking...'}
                 </div>
               </ReasoningContent>
             </Reasoning>
           ) : (
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
+            <div className="flex items-center gap-2 text-gray-600 text-base">
               <Loader variant="text-shimmer" size="sm" />
               <span>Thinking...</span>
             </div>
@@ -80,21 +80,21 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
 
         {/* Show streaming message when available */}
         {streamingMessage && (
-          <div className="w-full max-w-5xl rounded-2xl p-6 text-gray-900">
+          <div className="w-full max-w-4xl rounded-2xl p-4 sm:p-6 text-gray-900">
             {(() => {
               // Check if the content contains HTML tags
               if (streamingMessage.includes('<') && streamingMessage.includes('>')) {
                 // If it's HTML, render it safely with custom CSS
                 return (
                   <div 
-                    className="prose prose-sm max-w-none text-gray-800 leading-relaxed chat-html-content"
+                    className="prose prose-base sm:prose-base max-w-none text-gray-800 leading-relaxed chat-html-content"
                     dangerouslySetInnerHTML={{ __html: streamingMessage }}
                   />
                 );
               } else {
                 // If it's regular text/markdown, use the Markdown component
                 return (
-                  <Markdown className="max-w-none">
+                  <Markdown className="max-w-none prose-base sm:prose-base">
                     {streamingMessage}
                   </Markdown>
                 );

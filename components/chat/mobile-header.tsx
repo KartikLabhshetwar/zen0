@@ -13,7 +13,7 @@ export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
   }
 
   return (
-    <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white">
+    <div className="md:hidden flex items-center justify-between p-3 sm:p-4 border-b border-slate-200 bg-white flex-shrink-0">
       <h1 className="text-lg font-bold text-slate-800">zen0</h1>
       <Button
         variant="ghost"

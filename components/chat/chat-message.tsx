@@ -22,16 +22,16 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
       <div
         className={`${
           isUser 
-            ? "max-w-[85%] md:max-w-[80%] bg-slate-700 text-white shadow-sm" 
-            : "w-full max-w-5xl text-slate-800 bg-white"
-        } rounded-3xl ${isUser ? "p-4" : "p-6"}`}
+            ? "max-w-[92%] sm:max-w-[85%] md:max-w-[80%] bg-slate-700 text-white shadow-sm" 
+            : "w-full max-w-4xl text-slate-800 bg-white"
+        } rounded-2xl sm:rounded-3xl ${isUser ? "p-4 sm:p-4" : "p-4 sm:p-6"}`}
       >
         {isAssistant ? (
-          <Markdown className="max-w-none">
+          <Markdown className="max-w-none text-base sm:text-base leading-relaxed prose-sm sm:prose-base">
             {message.content}
           </Markdown>
         ) : (
-          <div className="whitespace-pre-wrap break-words">
+          <div className="whitespace-pre-wrap break-words text-base sm:text-base leading-relaxed">
             {message.content}
             {message.metadata?.files && (
               <div className="mt-3 pt-3 border-t border-gray-300/30">
@@ -60,18 +60,18 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
           </div>
         )}
         {message.created_at && (
-          <div className="text-xs opacity-70 mt-3 text-right">
+          <div className="text-xs opacity-70 mt-2 sm:mt-3 text-right">
             {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         )}
       </div>
       
       {/* Copy Button Below Message */}
-      <div className={`mt-2 flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`mt-2 sm:mt-2 flex ${isUser ? "justify-end" : "justify-start"}`}>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/50 transition-all duration-200 rounded-2xl hover:scale-105"
+          className="h-8 w-8 sm:h-8 sm:w-8 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/50 transition-all duration-200 rounded-xl sm:rounded-2xl hover:scale-105"
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(message.content);
@@ -81,7 +81,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
             }
           }}
         >
-          <Copy className="h-4 w-4" />
+          <Copy className="h-4 w-4 sm:h-4 sm:w-4" />
         </Button>
       </div>
     </div>

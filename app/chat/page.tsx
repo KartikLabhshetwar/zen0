@@ -54,18 +54,13 @@ export default function ChatPage() {
 
   // Debounced input handler to prevent excessive re-renders
   const debouncedSetInput = useCallback((value: string) => {
-    // Preserve the current model selection when input changes
-    const currentModel = selectedModel
     setInput(value)
-    
-    // Ensure model selection is maintained
-    if (currentModel && currentModel !== selectedModel) {
-      setSelectedModel(currentModel)
-    }
-  }, [selectedModel])
+  }, [])
 
-  // Mem0 service instance
-  const mem0Service = mem0ApiKey ? new Mem0Service(mem0ApiKey) : null
+  // Mem0 service instance - memoized to prevent recreation on every render
+  const mem0Service = useMemo(() => {
+    return mem0ApiKey ? new Mem0Service(mem0ApiKey) : null
+  }, [mem0ApiKey])
 
   // Set global user ID for Mem0 (can be customized)
   useEffect(() => {
@@ -132,7 +127,7 @@ export default function ChatPage() {
       // Only update if we don't have a model selected, preventing override of user choice
       setSelectedModel(currentConversation.model)
     }
-  }, [currentConversation, selectedModel])
+  }, [currentConversation?.model, selectedModel])
 
   // Initialize selected model from settings if not already set
   useEffect(() => {
@@ -149,7 +144,7 @@ export default function ChatPage() {
       const defaultModel = settings.default_model || "llama-3.1-8b-instant"
       setSelectedModel(defaultModel)
     }
-  }, [selectedModel, localStorageService, settingsLoaded])
+  }, [selectedModel, settingsLoaded])
 
   const loadLocalSettings = () => {
     if (settingsLoaded) {
@@ -628,7 +623,7 @@ export default function ChatPage() {
 
         {currentConversation ? (
           <>
-            <div className="flex-1 mt-10 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-h-0">
               <ChatMessages 
                 messages={messages}
                 streamingMessage={streamingMessage}
@@ -638,7 +633,7 @@ export default function ChatPage() {
                 showReasoning={showReasoning}
               />
             </div>
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 border-t border-slate-100">
               <ResponseCopySection 
                 streamingMessage={streamingMessage}
                 isStreaming={isStreaming}
@@ -658,7 +653,7 @@ export default function ChatPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-0">
             <WelcomeScreen onNewConversation={createNewConversation} />
           </div>
         )}

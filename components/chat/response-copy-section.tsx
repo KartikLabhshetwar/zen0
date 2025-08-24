@@ -21,7 +21,7 @@ export function ResponseCopySection({ streamingMessage, isStreaming }: ResponseC
 
   return (
     <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
-      <div className="max-w-3xl mx-auto flex justify-end">
+      <div className="max-w-4xl mx-auto flex justify-end">
         <Button
           variant="ghost"
           size="sm"
