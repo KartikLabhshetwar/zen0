@@ -1,13 +1,17 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { Zen0Icon } from "@/components/ui/zen0-icon"
 
 export function HeroSection() {
   return (
     <section className="min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl text-center">
-        <h1 className="text-5xl sm:text-7xl md:text-8xl font-light tracking-tight text-black mb-6 sm:mb-8 animate-fade-in-up">
-          zen0
-        </h1>
+        <div className="flex items-center justify-center gap-4 mb-6 sm:mb-8 animate-fade-in-up">
+          <Zen0Icon className="text-black" size={80} />
+          <h1 className="text-5xl sm:text-7xl md:text-8xl font-light tracking-tight text-black">
+            zen0
+          </h1>
+        </div>
         <p className="text-xl sm:text-2xl text-gray-600 max-w-2xl leading-relaxed mb-8 sm:mb-12 mx-auto animate-fade-in-up animation-delay-200">
           AI conversations with perfect memory and blazing fast responses. 
           Experience the world's fastest LLMs powered by Groq's inference technology and enhanced with Mem0 AI Memory.
