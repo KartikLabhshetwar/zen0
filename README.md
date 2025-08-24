@@ -1,3 +1,7 @@
+
+<img width="819" height="461" alt="og-image" src="https://github.com/user-attachments/assets/30c5ab98-396a-42cd-b2b9-ea3863552a08" />
+
+
 # zen0 - AI Chat with Blazing Fast Responses
 
 A modern AI chatbot application that delivers blazing fast responses using Groq's lightning-fast inference technology and enhanced with Mem0 AI Memory for intelligent, persistent conversations. All data is stored locally in your browser's localStorage for complete privacy.
@@ -167,7 +171,7 @@ zen0-1/
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [Apache 2.0 License](LICENSE).
 
 ## Support
 
