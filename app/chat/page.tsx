@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
-import { Plus, Settings, Brain, Trash2, Database, Download, Upload as UploadIcon, Paperclip, X, ChevronsLeft, ChevronsRight, Menu, ArrowUp, Square } from "lucide-react"
+import { Plus, Settings, Brain, Trash2, Database, Download, Upload as UploadIcon, Paperclip, X, ChevronsLeft, ChevronsRight, Menu, ArrowUp, Square, Copy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { BYOKSetup } from "@/components/byok-setup"
 import { Markdown } from "@/components/ui/markdown"
@@ -48,29 +48,38 @@ export default function ChatPage() {
   const [apiKey, setApiKey] = useState<string>("")
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
-  const [memoryEnabled, setMemoryEnabled] = useState<boolean>(false)
+
   const [files, setFiles] = useState<File[]>([])
 
   // Mem0 service instance
-  const mem0Service = mem0ApiKey ? new Mem0Service(mem0ApiKey) : null
+  const mem0Service = mem0ApiKey ? Mem0Service.getInstance(mem0ApiKey) : null
+
+  // Set global user ID for Mem0 (can be customized)
+  useEffect(() => {
+    if (mem0Service) {
+      // Set default global user ID
+      const globalUserId = "zen0-global-user";
+      mem0Service.setGlobalUserId(globalUserId);
+    }
+  }, [mem0Service])
 
   useEffect(() => {
     loadLocalSettings()
     
-    // Cleanup function to process any pending Mem0 batch
+    // Cleanup function for Mem0 service
     return () => {
-      // Process any remaining Mem0 batch
-      if (memoryEnabled && mem0Service) {
-        mem0Service.processFinalBatch().catch(e => {
-          console.error("Error processing final Mem0 batch:", e);
+      if (mem0Service) {
+        // Force process any remaining batch before cleanup
+        mem0Service.flushBatch().then(() => {
+          mem0Service.cleanup();
         });
       }
     };
-  }, [memoryEnabled, mem0Service])
+  }, [mem0Service])
 
   // Show welcome message when Mem0 is first enabled
   useEffect(() => {
-    if (mem0ApiKey && memoryEnabled) {
+    if (mem0ApiKey) {
       const hasSeenMem0Welcome = sessionStorage.getItem('mem0-welcome-shown');
       if (!hasSeenMem0Welcome) {
         toast.success("🎉 Mem0 AI Memory enabled! Your conversations will now be enhanced with intelligent memory.", {
@@ -79,8 +88,9 @@ export default function ChatPage() {
         });
         sessionStorage.setItem('mem0-welcome-shown', 'true');
       }
+
     }
-  }, [mem0ApiKey, memoryEnabled])
+  }, [mem0ApiKey])
 
   useEffect(() => {
     fetchConversations()
@@ -131,7 +141,7 @@ export default function ChatPage() {
     const settings = localStorageService.getSettings()
     setApiKey(settings.api_keys.groq || "")
     setSelectedModel(settings.default_model || "")
-    setMemoryEnabled(settings.memory_enabled)
+
 
     // Check if API keys exist in localStorage
     const keys = localStorage.getItem("zen0-api-keys")
@@ -147,6 +157,7 @@ export default function ChatPage() {
       
       if (mem0Key && mem0Key.key) {
         setMem0ApiKey(mem0Key.key)
+
       }
       
       // Don't automatically hide API setup - let users access it manually
@@ -214,6 +225,10 @@ export default function ChatPage() {
 
   const sendMessage = async () => {
     if (!input.trim() || isStreaming || !currentConversation) return
+    if (!currentConversation.id) {
+      console.error("Conversation ID is missing");
+      return;
+    }
     if (!apiKey) {
       setShowApiSetup(true)
       return
@@ -223,28 +238,24 @@ export default function ChatPage() {
 
     // Prepare messages for sending
     let messagesToSend = [...messages];
-    
-    // Memory retrieval - only do this periodically and non-blocking
-    if (memoryEnabled && mem0Service && messages.length % 3 === 0) {
-      // Fire and forget memory retrieval - don't block the main flow
-      mem0Service.searchMemories(input, `zen0-user-${currentConversation.id}`).then(memories => {
-        if (memories && memories.length > 0) {
-          // Store memories locally for next conversation context
-          const memoryContent = memories.join("\n");
-          mem0Service.storeContext(currentConversation.id, memoryContent);
-        }
-      }).catch((error: Error) => {
-        console.error("Memory retrieval failed (non-blocking):", error);
-      });
-    }
 
-    // Use locally cached memories if available (faster than API call)
-    const cachedMemories = mem0Service?.getContext(currentConversation.id);
-    if (cachedMemories) {
-      messagesToSend = [
-        { role: "system", content: `Previous context:\n${cachedMemories}` },
-        ...messagesToSend
-      ];
+    // Retrieve relevant memories BEFORE sending to AI for better context
+    let relevantMemories: string[] = [];
+    if (mem0Service) {
+      try {
+        // Use a more general search query to find relevant user information
+        let searchQuery = input;
+        
+        // For questions about the user, use a broader search
+        if (input.toLowerCase().includes("my name") || input.toLowerCase().includes("what is my") || input.toLowerCase().includes("who am i")) {
+          searchQuery = "user information personal details preferences";
+        }
+        
+        relevantMemories = await mem0Service.searchMemories(searchQuery, undefined, 5);
+      } catch (error) {
+        console.error("Failed to retrieve memories:", error);
+        // Continue without memories if retrieval fails
+      }
     }
 
     const userMessage: ChatMessage = {
@@ -255,6 +266,45 @@ export default function ChatPage() {
     const newMessages = [...messagesToSend, userMessage]
     setMessages(newMessages)
     saveMessages(currentConversation.id, newMessages)
+    
+    // Memory storage will happen AFTER streaming completes to avoid slowing down the response
+    
+    // Create clean messages for API (only role and content)
+    let cleanMessagesForAPI = newMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    // Enhance the first user message with relevant memories if available
+    if (relevantMemories.length > 0 && cleanMessagesForAPI.length > 0) {
+      const firstUserMessage = cleanMessagesForAPI.find(msg => msg.role === "user");
+      if (firstUserMessage && firstUserMessage.content) {
+        const memoryContext = `\n\n[Previous Context: ${relevantMemories.join(" | ")}]`;
+        firstUserMessage.content += memoryContext;
+      }
+    }
+
+    // Add system message to instruct AI to use memory context
+    if (relevantMemories.length > 0) {
+      cleanMessagesForAPI.unshift({
+        role: "system",
+        content: `You have access to previous context about this user. Use this information to provide personalized and contextual responses. The context is marked with [Previous Context: ...] in the user's message.`
+      });
+    }
+    
+    // Update conversation title to first user message if it's the first message
+    if (messages.length === 0) {
+      const updatedConversations = conversations.map(conv => 
+        conv.id === currentConversation.id 
+          ? { ...conv, title: input.length > 30 ? input.substring(0, 30) + "..." : input }
+          : conv
+      )
+      setConversations(updatedConversations)
+      const updatedConversation = { ...currentConversation, title: input.length > 30 ? input.substring(0, 30) + "..." : input }
+      setCurrentConversation(updatedConversation)
+      localStorageService.updateConversation(currentConversation.id, { title: input.length > 30 ? input.substring(0, 30) + "..." : input })
+    }
+    
     setInput("")
     setIsStreaming(true)
     setStreamingMessage("")
@@ -264,9 +314,10 @@ export default function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: newMessages,
+          messages: cleanMessagesForAPI,
           model: currentConversation.model,
           apiKey: apiKey,
+          conversationId: currentConversation.id,
         }),
       })
 
@@ -345,14 +396,30 @@ export default function ChatPage() {
       const responseTime = performance.now() - startTime
       console.log(`[zen0] Response time: ${responseTime.toFixed(2)}ms`)
 
-      // Store memory in background - don't block the UI
-      if (memoryEnabled && mem0Service) {
+      // Memory operations in background - don't block the UI
+      if (mem0Service) {
         // Local storage is fast, do it immediately
         localStorageService.storeMemory(currentConversation.id, finalMessages)
         
-        // Mem0 storage in background - non-blocking
-        mem0Service.storeMemories(currentConversation.id, finalMessages).catch((error: Error) => {
-          console.error("Background Mem0 storage failed:", error);
+        // Check if this message contains personal information that should be stored as profile
+        const userMessage = finalMessages.find(msg => msg.role === "user");
+        if (userMessage && userMessage.content && (
+            userMessage.content.toLowerCase().includes("my name is") || 
+            userMessage.content.toLowerCase().includes("i am") || 
+            userMessage.content.toLowerCase().includes("i'm"))) {
+          // Store as user profile for future reference
+          mem0Service.storeUserProfile(userMessage.content, { 
+            conversation_id: currentConversation.id,
+            type: "user_introduction"
+          });
+        }
+        
+        // Mem0 operations in background - non-blocking
+        Promise.all([
+          // Store current conversation memories (now global)
+          mem0Service.storeMemories(currentConversation.id, finalMessages)
+        ]).catch((error: Error) => {
+          console.error("Background Mem0 operations failed:", error);
           // Don't retry immediately to avoid API throttling
         });
       }
@@ -411,7 +478,6 @@ export default function ChatPage() {
       setApiKey("")
       setMem0ApiKey("")
       setSelectedModel("llama-3.1-8b-instant")
-      setMemoryEnabled(false)
       setFiles([])
       toast.success("All data cleared")
     }
@@ -464,7 +530,7 @@ export default function ChatPage() {
                     setApiKey(keyMap.groq || "")
                     setMem0ApiKey(keyMap.mem0 || "")
                     setSelectedModel(modelMap.groq || "llama-3.1-8b-instant")
-                    setMemoryEnabled(!!keyMap.mem0 || !!keyMap.groq)
+                    
 
                     if (keyMap.groq) {
                       setShowApiSetup(false)
@@ -554,23 +620,7 @@ export default function ChatPage() {
             </div>
           </div>
           
-          {!sidebarCollapsed && (
-            <div className="space-y-3">
-              {memoryEnabled && (
-                <div className="flex items-center gap-3 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg">
-                  <Brain className="w-4 h-4" />
-                  <span className="font-medium">Memory Enabled</span>
-                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-0 ml-auto">
-                    {mem0ApiKey ? "Mem0 Active" : "Local Only"}
-                  </Badge>
-                </div>
-              )}
-              <div className="flex items-center gap-3 text-sm text-gray-700 bg-gray-100 px-3 py-2 rounded-lg">
-                <Database className="w-4 h-4" />
-                <span className="font-medium">Local Storage</span>
-              </div>
-            </div>
-          )}
+
         </div>
 
         <ScrollArea className="flex-1 py-2">
@@ -581,11 +631,13 @@ export default function ChatPage() {
                   {...({ variant: currentConversation?.id === conv.id ? "secondary" : "ghost" } as any)}
                   className={`${sidebarCollapsed ? 'md:w-12 md:px-0 md:justify-center' : 'md:w-full md:justify-start'} w-full justify-start h-auto py-3 px-2 text-left hover:bg-gray-100 rounded-lg transition-all duration-200`}
                   onClick={() => {
-                    setCurrentConversation(conv)
-                    loadConversationMessages(conv.id)
-                    // Close sidebar on mobile after selecting conversation
-                    if (window.innerWidth < 768) {
-                      setSidebarCollapsed(true)
+                    if (conv.id) {
+                      setCurrentConversation(conv)
+                      loadConversationMessages(conv.id)
+                      // Close sidebar on mobile after selecting conversation
+                      if (window.innerWidth < 768) {
+                        setSidebarCollapsed(true)
+                      }
                     }
                   }}
                 >
@@ -619,21 +671,6 @@ export default function ChatPage() {
         </ScrollArea>
 
         <div className="p-2 border-t border-gray-200">
-          {/* Mem0 Status Indicator */}
-          {mem0ApiKey && !sidebarCollapsed && (
-            <div className="mb-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-800">Mem0 AI Memory Active</p>
-                  <p className="text-xs text-gray-600 truncate">Advanced memory system enabled</p>
-                </div>
-                <div className="text-xs text-gray-500 cursor-help" title="Mem0 AI Memory provides intelligent, persistent memory across conversations. It learns from your interactions and provides relevant context for better, more personalized responses.">
-                </div>
-              </div>
-            </div>
-          )}
-          
           <div className="space-y-1">
             <Button 
               {...({ variant: "ghost" } as any)} 
@@ -677,6 +714,7 @@ export default function ChatPage() {
                       </label>
                     </Button>
                   </div>
+                  
                   <Button {...({ variant: "destructive" } as any)} onClick={clearAllData} className="w-full h-10 rounded-lg">
                     Clear All Data
                   </Button>
@@ -713,32 +751,7 @@ export default function ChatPage() {
                     {currentConversation.model}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {memoryEnabled && (
-                    <Badge 
-                      variant="outline" 
-                      className={`flex items-center gap-1.5 text-xs px-2.5 py-1 ${
-                        mem0ApiKey 
-                          ? "bg-green-50 text-green-700 border-green-200" 
-                          : "bg-blue-50 text-blue-700 border-blue-200"
-                      }`}
-                      title={mem0ApiKey ? "Mem0 AI Memory: Advanced AI-powered memory system that learns and provides intelligent context across conversations" : "Local Memory: Basic memory storage in your browser"}
-                    >
-                      <Brain className="w-3 h-3" />
-                      {mem0ApiKey ? "Mem0 AI Memory" : "Local Memory"}
-                    </Badge>
-                  )}
-                  {mem0ApiKey && (
-                    <Badge 
-                      variant="outline" 
-                      className="flex items-center gap-1.5 text-xs bg-gray-50 text-gray-700 border-gray-200 px-2.5 py-1"
-                      title="Mem0 AI Memory is actively learning from your conversations and providing intelligent context for better responses"
-                    >
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                      AI Memory
-                    </Badge>
-                  )}
-                </div>
+
               </div>
             </div>
 
@@ -746,7 +759,7 @@ export default function ChatPage() {
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
               <div className="space-y-8 max-w-5xl mx-auto">
                 {messages.map((message, index) => (
-                  <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div key={index} className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
                     <div
                       className={`${
                         message.role === "user" 
@@ -793,33 +806,59 @@ export default function ChatPage() {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Copy Button Below Message */}
+                    <div className={`mt-2 flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 transition-colors duration-200"
+                        onClick={() => {
+                          navigator.clipboard.writeText(message.content);
+                          toast.success("Copied to clipboard!");
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
 
                 {streamingMessage && (
-                  <div className="flex justify-start">
-                    <div className="w-full max-w-5xl rounded-2xl p-6 text-gray-900">
-                      <Markdown className="max-w-none">
-                        {streamingMessage}
-                      </Markdown>
-                    </div>
+                  <div className="w-full max-w-5xl rounded-2xl p-6 text-gray-900">
+                    <Markdown className="max-w-none">
+                      {streamingMessage}
+                    </Markdown>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
-            {/* Memory Processing Indicator */}
-            {memoryEnabled && mem0ApiKey && (
-              <div className="border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-blue-50/50 px-4 py-2">
-                <div className="max-w-3xl mx-auto">
-                  <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                    <span>Mem0 AI Memory: Learning from this conversation</span>
+            {/* Copy Section - Outside Response Stream for Performance */}
+            {streamingMessage && !isStreaming && (
+              <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+                <div className="max-w-5xl mx-auto">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Response complete</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-3 bg-white text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors duration-200"
+                      onClick={() => {
+                        navigator.clipboard.writeText(streamingMessage);
+                        toast.success("Copied to clipboard!");
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Response
+                    </Button>
                   </div>
                 </div>
               </div>
             )}
+
+
 
             {/* Input Area */}
             <div className="border-t border-gray-200 p-4">
@@ -867,23 +906,23 @@ export default function ChatPage() {
                     )}
 
                     <PromptInputTextarea 
-                      placeholder={
-                        memoryEnabled
-                          ? "Ask me anything..."
-                          : "Type your message..."
-                      }
+                      placeholder="Ask me anything..."
                       disabled={isStreaming}
                       className="min-h-[60px] resize-none border-gray-200 focus:border-gray-400 focus:ring-gray-400"
                     />
 
                     <PromptInputActions className="flex items-center justify-between gap-2 pt-3">
-                      <PromptInputAction tooltip="Attach files">
-                        <FileUploadTrigger asChild>
-                          <div className="hover:bg-gray-100 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors">
-                            <Paperclip className="text-gray-600 w-4 h-4" />
-                          </div>
-                        </FileUploadTrigger>
-                      </PromptInputAction>
+                      <div className="flex items-center gap-2">
+                        <PromptInputAction tooltip="Attach files">
+                          <FileUploadTrigger asChild>
+                            <div className="hover:bg-gray-100 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors">
+                              <Paperclip className="text-gray-600 w-4 h-4" />
+                            </div>
+                          </FileUploadTrigger>
+                        </PromptInputAction>
+
+
+                      </div>
 
                       <PromptInputAction tooltip="Send message">
                         <Button
@@ -944,9 +983,7 @@ export default function ChatPage() {
               </div>
               <h2 className="text-xl font-light text-gray-900 mb-2">Welcome to zen0</h2>
               <p className="text-gray-600 mb-6 text-center leading-relaxed text-sm">
-                {memoryEnabled
-                  ? "Create a new chat to start a conversation with memory-enhanced AI"
-                  : "Create a new chat to get started with AI conversations"}
+                Create a new chat to start a conversation with AI
               </p>
               <Button onClick={createNewConversation} className="h-10 px-6 bg-gray-900 hover:bg-gray-800 text-base font-medium rounded-lg">
                 <Plus className="w-4 h-4 mr-2" />

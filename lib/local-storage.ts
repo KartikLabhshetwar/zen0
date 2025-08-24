@@ -141,7 +141,7 @@ class LocalStorageService {
       api_keys: {},
       default_provider: "groq",
       default_model: "llama-3.1-8b-instant",
-      memory_enabled: false,
+      memory_enabled: true,
     }
   }
 
@@ -158,6 +158,12 @@ class LocalStorageService {
   updateApiKey(provider: string, key: string): void {
     const settings = this.getSettings()
     settings.api_keys[provider] = key
+    this.saveSettings(settings)
+  }
+
+  updateMemoryEnabled(enabled: boolean): void {
+    const settings = this.getSettings()
+    settings.memory_enabled = enabled
     this.saveSettings(settings)
   }
 

@@ -1,209 +1,387 @@
-interface Mem0Memory {
-  messages: Array<{
-    role: string;
-    content: string;
-  }>;
+export interface Mem0Memory {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
   user_id: string;
-  metadata: Record<string, any>;
+  metadata?: Record<string, any>;
 }
 
-interface Mem0BatchResponse {
-  message: string;
-  memories_created?: number;
-}
+// Singleton instance to prevent multiple initializations
+let mem0Instance: Mem0Service | null = null;
 
-class Mem0Service {
-  private apiKey: string;
-  private baseUrl = "https://api.mem0.ai/v1";
-  private batchKey = "mem0-batch";
-  private contextKey = "mem0-context";
-  private batchSize = 5; // Optimal batch size for Mem0
-  private maxRetries = 3;
+export class Mem0Service {
+  private apiKey: string = "";
+  private isInitialized: boolean = false;
+  private batchQueue: Mem0Memory[] = [];
+  private batchTimeout: NodeJS.Timeout | null = null;
+  private isProcessingBatch: boolean = false;
+  private readonly BATCH_DELAY = 2000; // 2 seconds
+  private readonly MAX_BATCH_SIZE = 10;
+  private globalUserId: string = "zen0-user"; // Global user ID for all conversations
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
+    // Only initialize if not already done
+    if (!mem0Instance) {
+      this.apiKey = apiKey;
+      this.isInitialized = true;
+      mem0Instance = this;
+    }
   }
 
-  // Add memory to batch (non-blocking)
-  addToBatch(memory: Mem0Memory): void {
-    try {
-      const batch = this.getBatch();
-      batch.push(memory);
-      this.saveBatch(batch);
+  // Get singleton instance
+  static getInstance(apiKey?: string): Mem0Service {
+    if (!mem0Instance && apiKey) {
+      mem0Instance = new Mem0Service(apiKey);
+    }
+    return mem0Instance!;
+  }
 
-      // Send batch if it reaches optimal size
-      if (batch.length >= this.batchSize) {
-        this.sendBatchAsync();
+  // Check if service is ready
+  isReady(): boolean {
+    return this.isInitialized && !!this.apiKey;
+  }
+
+  // Set global user ID (can be customized per user)
+  setGlobalUserId(userId: string): void {
+    this.globalUserId = userId;
+  }
+
+  // Get current global user ID
+  getGlobalUserId(): string {
+    return this.globalUserId;
+  }
+
+  // Add to batch queue (non-blocking)
+  private addToBatch(memory: Mem0Memory): void {
+    this.batchQueue.push(memory);
+    
+    // Process batch if it reaches max size
+    if (this.batchQueue.length >= this.MAX_BATCH_SIZE) {
+      this.processBatch();
+      return;
+    }
+
+    // Set timeout for delayed processing
+    if (!this.batchTimeout) {
+      this.batchTimeout = setTimeout(() => {
+        this.processBatch();
+      }, this.BATCH_DELAY);
+    }
+  }
+
+  // Process batch asynchronously
+  private async processBatch(): Promise<void> {
+    if (this.isProcessingBatch || this.batchQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingBatch = true;
+    
+    try {
+      const batch = [...this.batchQueue];
+      this.batchQueue = [];
+      
+      if (this.batchTimeout) {
+        clearTimeout(this.batchTimeout);
+        this.batchTimeout = null;
       }
+
+      // Process each memory individually using our proxy API
+      for (const memory of batch) {
+        try {
+          await this.storeMemoryViaProxy(memory);
+        } catch (error) {
+          console.error("Failed to store individual memory:", error);
+          // Continue processing other memories even if one fails
+        }
+      }
+    } catch (error) {
+      console.error("Batch processing failed:", error);
+    } finally {
+      this.isProcessingBatch = false;
+    }
+  }
+
+  // Store memory via our proxy API (no ping, no CORS)
+  private async storeMemoryViaProxy(memory: Mem0Memory): Promise<void> {
+    try {
+      const response = await fetch('/api/mem0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'add',
+          messages: memory.messages,
+          user_id: memory.user_id,
+          metadata: memory.metadata
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to store memory: ${response.status} - ${errorText}`);
+        // Don't throw - just log the error to avoid blocking
+        return;
+      }
+
+      const result = await response.json();
+    } catch (error) {
+      console.error("Proxy API call failed:", error);
+      // Don't throw - just log the error to avoid blocking
+      return;
+    }
+  }
+
+  // Store memories from conversation (non-blocking) - NOW GLOBAL
+  async storeMemories(conversationId: string, messages: Array<{ role: string; content: string }>): Promise<void> {
+    if (!this.isReady()) {
+      console.error("Mem0 service not ready");
+      return;
+    }
+
+    try {
+      // Use the last 4 messages for context
+      const recentMessages = messages.slice(-4);
+      
+      const memory: Mem0Memory = {
+        messages: recentMessages as Array<{ role: "user" | "assistant"; content: string }>,
+        user_id: this.globalUserId, // Use global user ID instead of conversation-specific
+        metadata: { 
+          source: "zen0-chat",
+          conversation_id: conversationId, // Keep conversation ID in metadata for reference
+          timestamp: new Date().toISOString(),
+          type: "conversation_memory"
+        }
+      };
+      
+      // Add to batch queue (non-blocking)
+      this.addToBatch(memory);
     } catch (error) {
       console.error("Failed to add memory to batch:", error);
     }
   }
 
-  // Send batch asynchronously (non-blocking)
-  private async sendBatchAsync(): Promise<void> {
-    setTimeout(async () => {
-      await this.sendBatch();
-    }, 100); // Small delay to ensure UI is not blocked
-  }
+  // Store user profile information (persistent across all conversations)
+  async storeUserProfile(profileInfo: string, metadata?: Record<string, any>): Promise<void> {
+    if (!this.isReady()) {
+      console.error("Mem0 service not ready");
+      return;
+    }
 
-  // Send batch to Mem0 API
-  private async sendBatch(): Promise<void> {
     try {
-      const batch = this.getBatch();
-      if (batch.length === 0) return;
-
-      const response = await fetch(`${this.baseUrl}/memories/batch/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Token ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          memories: batch.map(item => ({
-            messages: item.messages,
-            user_id: item.user_id,
-            metadata: item.metadata
-          }))
-        })
-      });
-
-      if (response.ok) {
-        const result: Mem0BatchResponse = await response.json();
-        console.log(`Mem0 batch success: ${result.message}`);
-        this.clearBatch();
-      } else {
-        const errorText = await response.text();
-        console.error("Mem0 batch failed:", response.status, errorText);
-        
-        // Retry logic for failed batches
-        if (this.shouldRetry()) {
-          setTimeout(() => this.sendBatch(), 1000);
+      const memory: Mem0Memory = {
+        messages: [{ role: "user", content: profileInfo }],
+        user_id: this.globalUserId,
+        metadata: { 
+          source: "zen0-chat",
+          type: "user_profile",
+          timestamp: new Date().toISOString(),
+          ...metadata
         }
-      }
-    } catch (error) {
-      console.error("Mem0 batch send error:", error);
+      };
       
-      // Retry logic for network errors
-      if (this.shouldRetry()) {
-        setTimeout(() => this.sendBatch(), 2000);
-      }
+      // Add to batch queue (non-blocking)
+      this.addToBatch(memory);
+    } catch (error) {
+      console.error("Failed to add user profile to batch:", error);
     }
   }
 
-  // Search memories (non-blocking)
-  async searchMemories(query: string, userId?: string, limit: number = 3): Promise<string[]> {
+  // Search memories using our proxy API (no ping, no CORS) - NOW GLOBAL
+  async searchMemories(query: string, userId?: string, limit: number = 5): Promise<string[]> {
+    if (!this.isReady()) {
+      console.error("Mem0 service not ready");
+      return [];
+    }
+
     try {
-      const response = await fetch(`${this.baseUrl}/memories/search/`, {
-        method: "POST",
+      // Use global user ID if no specific userId provided
+      const searchUserId = userId || this.globalUserId;
+      
+      const response = await fetch('/api/mem0', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Token ${this.apiKey}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          action: 'search',
           query,
-          user_id: userId || "default",
+          version: 'v2',
+          filters: {
+            AND: [
+              {
+                user_id: searchUserId
+              }
+            ]
+          },
           limit
         })
       });
 
-      if (response.ok) {
-        const memories = await response.json();
-        return memories.map((mem: any) => mem.memory);
-      }
-    } catch (error) {
-      console.error("Mem0 search failed:", error);
-    }
-    
-    return [];
-  }
-
-  // Store memories from conversation (non-blocking)
-  async storeMemories(conversationId: string, messages: Array<{ role: string; content: string }>): Promise<void> {
-    try {
-      // Prepare messages for Mem0 (last 4 messages for context)
-      const recentMessages = messages.slice(-4);
-      const mem0Memory: Mem0Memory = {
-        messages: recentMessages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        user_id: `zen0-user-${conversationId}`,
-        metadata: { 
-          source: "zen0-chat",
-          conversation_id: conversationId,
-          timestamp: new Date().toISOString()
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Search failed:", response.status, errorText);
+        
+        // Try to parse error details for better debugging
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.details) {
+            console.error("Error details:", errorData.details);
+          }
+          if (errorData.suggestion) {
+            console.error("Suggestion:", errorData.suggestion);
+          }
+        } catch (parseError) {
+          // Error text is not JSON, use as is
         }
-      };
-      
-      // Add to batch (will auto-send when batch is full)
-      this.addToBatch(mem0Memory);
-    } catch (error) {
-      console.error("Failed to prepare memory for batch:", error);
-    }
-  }
-
-  // Store context in session storage for faster access
-  storeContext(conversationId: string, context: string): void {
-    try {
-      sessionStorage.setItem(`${this.contextKey}-${conversationId}`, context);
-    } catch (error) {
-      console.error("Failed to store context:", error);
-    }
-  }
-
-  // Get cached context
-  getContext(conversationId: string): string | null {
-    try {
-      return sessionStorage.getItem(`${this.contextKey}-${conversationId}`);
-    } catch (error) {
-      console.error("Failed to get context:", error);
-      return null;
-    }
-  }
-
-  // Process final batch on cleanup
-  async processFinalBatch(): Promise<void> {
-    try {
-      const batch = this.getBatch();
-      if (batch.length > 0) {
-        await this.sendBatch();
+        
+        // Return empty array on failure - don't throw to avoid blocking
+        return [];
       }
-    } catch (error) {
-      console.error("Failed to process final batch:", error);
-    }
-  }
 
-  // Private helper methods
-  private getBatch(): Mem0Memory[] {
-    try {
-      const stored = sessionStorage.getItem(this.batchKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
+      const results = await response.json();
+
+      // Handle v2 search response format
+      if (results && results.memories && Array.isArray(results.memories)) {
+        return results.memories.map((result: any) => {
+          if (result.memory) return result.memory;
+          if (result.text) return result.text;
+          if (typeof result === 'string') return result;
+          return JSON.stringify(result);
+        });
+      }
+
+      // Handle v2 search response format (alternative structure)
+      if (results && results.results && Array.isArray(results.results)) {
+        return results.results.map((result: any) => {
+          if (result.memory) return result.memory;
+          if (result.text) return result.text;
+          if (typeof result === 'string') return result;
+          return JSON.stringify(result);
+        });
+      }
+
+      // Fallback for other response formats
+      if (results && Array.isArray(results)) {
+        return results.map((result: any) => {
+          if (result.memory) return result.memory;
+          if (result.content) return result.content;
+          if (result.text) return result.text;
+          if (typeof result === 'string') return result;
+          return JSON.stringify(result);
+        });
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Memory search failed:", error);
+      
+      // Log more details about the error
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
+      }
+      
+      // Return empty array on failure - don't throw to avoid blocking
       return [];
     }
   }
 
-  private saveBatch(batch: Mem0Memory[]): void {
+  // Get all memories for a user using our proxy API - NOW GLOBAL
+  async getAllMemories(userId?: string): Promise<any[]> {
+    if (!this.isReady()) {
+      console.error("Mem0 service not ready");
+      return [];
+    }
+
     try {
-      sessionStorage.setItem(this.batchKey, JSON.stringify(batch));
+      const searchUserId = userId || this.globalUserId;
+      const response = await fetch('/api/mem0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'getAll',
+          user_id: searchUserId
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Get all failed:", response.status, errorText);
+        return [];
+      }
+
+      const memories = await response.json();
+      return memories || [];
     } catch (error) {
-      console.error("Failed to save batch:", error);
+      console.error("Failed to get all memories:", error);
+      return [];
     }
   }
 
-  private clearBatch(): void {
+  // Delete all memories for a user using our proxy API - NOW GLOBAL
+  async deleteAllMemories(userId?: string): Promise<boolean> {
+    if (!this.isReady()) {
+      console.error("Mem0 service not ready");
+      return false;
+    }
+
     try {
-      sessionStorage.removeItem(this.batchKey);
+      const searchUserId = userId || this.globalUserId;
+      const response = await fetch('/api/mem0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'deleteAll',
+          user_id: searchUserId
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Delete all failed:", response.status, errorText);
+        return false;
+      }
+
+      console.log("All memories deleted for user:", searchUserId);
+      return true;
     } catch (error) {
-      console.error("Failed to clear batch:", error);
+      console.error("Failed to delete memories:", error);
+      return false;
     }
   }
 
-  private shouldRetry(): boolean {
-    // Simple retry logic - could be enhanced with exponential backoff
-    return Math.random() < 0.5; // 50% chance to retry
+  // Force process any remaining batch
+  async flushBatch(): Promise<void> {
+    if (this.batchQueue.length > 0) {
+      await this.processBatch();
+    }
+  }
+
+  // Cleanup method
+  cleanup(): void {
+    try {
+      // Process any remaining batch before cleanup
+      this.flushBatch();
+      
+      this.apiKey = "";
+      this.isInitialized = false;
+      mem0Instance = null;
+    } catch (error) {
+      console.error("Failed to cleanup Mem0 service:", error);
+    }
   }
 }
 
-export { Mem0Service, type Mem0Memory };
+
+
+
+
+
+

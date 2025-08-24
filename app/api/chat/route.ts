@@ -2,7 +2,14 @@ import type { NextRequest } from "next/server"
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, model, apiKey } = await req.json()
+    const { messages, model, apiKey, conversationId } = await req.json()
+
+    // Clean messages to remove any unsupported properties for Groq API
+    const cleanMessages = messages.map((msg: any) => {
+      // Only keep the properties that Groq API supports
+      const { role, content } = msg;
+      return { role, content };
+    });
 
     const apiUrl = "https://api.groq.com/openai/v1/chat/completions"
     const headers = {
@@ -11,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
     const body = {
       model,
-      messages,
+      messages: cleanMessages,
       stream: true,
     }
 
