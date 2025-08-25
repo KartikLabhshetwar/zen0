@@ -1,6 +1,7 @@
 import {
   HeroSection,
   FeaturesSection,
+  TestimonialsSection,
   HowItWorksSection,
   CTASection,
   Footer
@@ -11,6 +12,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       <HeroSection />
       <FeaturesSection />
+      <TestimonialsSection />
       <HowItWorksSection />
       <CTASection
         title="Ready for Blazing Speed?"

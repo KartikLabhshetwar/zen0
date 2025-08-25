@@ -1,8 +1,16 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { Space_Grotesk } from "next/font/google"
 import "./globals.css"
 import { Header } from "@/components/header"
 import { Toaster } from "@/components/ui/sonner"
+
+// Configure Space Grotesk font
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-space-grotesk',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://zen0.vercel.app"),
@@ -61,7 +69,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className={`min-h-screen bg-background antialiased ${spaceGrotesk.variable} font-space-grotesk`}>
         <Header />
         {children}
         <Toaster />

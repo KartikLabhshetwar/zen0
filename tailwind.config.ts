@@ -12,6 +12,10 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			'space-grotesk': ['var(--font-space-grotesk)', 'sans-serif'],
+  			sans: ['var(--font-space-grotesk)', 'system-ui', 'sans-serif'],
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

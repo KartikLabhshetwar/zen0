@@ -67,56 +67,56 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
   p: function ParagraphComponent({ children, ...props }) {
     return (
-      <p className="mb-4 text-gray-800 leading-relaxed" {...props}>
+      <p className="mb-4 text-gray-800 leading-relaxed font-space-grotesk" {...props}>
         {children}
       </p>
     )
   },
   h1: function H1Component({ children, ...props }) {
     return (
-      <h1 className="text-2xl font-bold mb-6 text-gray-900 leading-tight" {...props}>
+      <h1 className="text-2xl font-bold mb-6 text-gray-900 leading-tight font-space-grotesk" {...props}>
         {children}
       </h1>
     )
   },
   h2: function H2Component({ children, ...props }) {
     return (
-      <h2 className="text-xl font-semibold mb-4 text-gray-900 leading-tight" {...props}>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900 leading-tight font-space-grotesk" {...props}>
         {children}
       </h2>
     )
   },
   h3: function H3Component({ children, ...props }) {
     return (
-      <h3 className="text-lg font-medium mb-3 text-gray-900 leading-tight" {...props}>
+      <h3 className="text-lg font-medium mb-3 text-gray-900 leading-tight font-space-grotesk" {...props}>
         {children}
       </h3>
     )
   },
   h4: function H4Component({ children, ...props }) {
     return (
-      <h4 className="text-base font-medium mb-2 text-gray-900 leading-tight" {...props}>
+      <h4 className="text-base font-medium mb-2 text-gray-900 leading-tight font-space-grotesk" {...props}>
         {children}
       </h4>
     )
   },
   ul: function UlComponent({ children, ...props }) {
     return (
-      <ul className="mb-4 space-y-2 list-disc list-inside text-gray-700" {...props}>
+      <ul className="mb-4 space-y-2 list-disc list-inside text-gray-700 font-space-grotesk" {...props}>
         {children}
       </ul>
     )
   },
   ol: function OlComponent({ children, ...props }) {
     return (
-      <ol className="mb-4 space-y-2 list-decimal list-inside text-gray-700" {...props}>
+      <ol className="mb-4 space-y-2 list-decimal list-inside text-gray-700 font-space-grotesk" {...props}>
         {children}
       </ol>
     )
   },
   li: function LiComponent({ children, ...props }) {
     return (
-      <li className="mb-1 text-gray-700 leading-relaxed" {...props}>
+      <li className="mb-1 text-gray-700 leading-relaxed font-space-grotesk" {...props}>
         {children}
       </li>
     )

@@ -183,15 +183,38 @@
   html {
     /* Prevent iOS zoom on input focus */
     -webkit-text-size-adjust: 100%;
+    /* Smooth scrolling for anchor links */
+    scroll-behavior: smooth;
   }
   
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-space-grotesk;
     /* Better font rendering on mobile */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Prevent elastic scrolling on iOS */
     overscroll-behavior-y: none;
+  }
+  
+  /* Ensure Space Grotesk is used in all text elements */
+  h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label {
+    @apply font-space-grotesk;
+  }
+  
+  /* Ensure prose elements use Space Grotesk */
+  .prose, .prose * {
+    font-family: var(--font-space-grotesk), sans-serif !important;
+  }
+  
+  /* Enhanced selection colors */
+  ::selection {
+    background: rgba(59, 130, 246, 0.2);
+    color: rgb(17, 24, 39);
+  }
+  
+  ::-moz-selection {
+    background: rgba(59, 130, 246, 0.2);
+    color: rgb(17, 24, 39);
   }
   
   /* Better touch targets for mobile */
@@ -376,5 +399,14 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: break-all;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

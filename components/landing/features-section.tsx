@@ -1,4 +1,7 @@
+"use client"
+
 import { FeatureCard } from "./feature-card"
+import { motion } from "framer-motion"
 
 const features = [
   {
@@ -71,17 +74,114 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section className="min-h-screen flex items-center px-4 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="w-full max-w-7xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-light text-black mb-8 sm:mb-16 text-center">
-          Why zen0?
-        </h2>
+    <section id="features" className="relative min-h-screen flex items-center px-4 sm:px-6 lg:px-8 py-20 sm:py-32 overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
+        <div className="absolute inset-0 bg-[url('/dots.svg')] bg-center opacity-40" />
+      </div>
+      
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          className="absolute top-1/3 -left-20 w-80 h-80 bg-blue-200/20 rounded-full blur-3xl"
+          animate={{ 
+            x: [0, 50, 0],
+            y: [0, -30, 0],
+            scale: [1, 1.1, 1]
+          }}
+          transition={{ 
+            duration: 15,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div 
+          className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-200/15 rounded-full blur-3xl"
+          animate={{ 
+            x: [0, -40, 0],
+            y: [0, 20, 0],
+            scale: [1, 0.9, 1]
+          }}
+          transition={{ 
+            duration: 18,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+      <div className="relative w-full max-w-7xl mx-auto">
+        {/* Section Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="text-center mb-16 sm:mb-24"
+        >
+          <motion.h2 
+            className="text-4xl sm:text-5xl md:text-6xl font-light text-black mb-6 font-space-grotesk"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            Why <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-medium">zen0</span>?
+          </motion.h2>
+          
+          <motion.p 
+            className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed font-space-grotesk"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            Experience the perfect blend of speed, privacy, and intelligence in AI conversations
+          </motion.p>
+        </motion.div>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-10">
           {features.map((feature, index) => (
-            <FeatureCard key={index} {...feature} />
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ 
+                duration: 0.5, 
+                delay: index * 0.1,
+                ease: "easeOut"
+              }}
+            >
+              <FeatureCard {...feature} />
+            </motion.div>
           ))}
         </div>
+        
+        {/* Bottom CTA */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="text-center mt-20 sm:mt-24"
+        >
+          <p className="text-lg text-gray-600 mb-8 font-space-grotesk">
+            Ready to experience the future of AI chat?
+          </p>
+          <motion.a
+            href="/chat"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 group"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Get Started for Free
+            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </motion.a>
+        </motion.div>
       </div>
     </section>
   )
