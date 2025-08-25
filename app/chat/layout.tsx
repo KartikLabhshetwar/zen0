@@ -1,4 +1,5 @@
 import type React from "react"
+import { MCPProvider } from "@/lib/context/mcp-context"
 
 export default function ChatLayout({
   children,
@@ -7,7 +8,9 @@ export default function ChatLayout({
 }>) {
   return (
     <div className="min-h-screen bg-background font-space-grotesk antialiased">
-      {children}
+      <MCPProvider>
+        {children}
+      </MCPProvider>
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { BorderTrail } from "@/components/motion-primitives/border-trail"
-import { Star, ExternalLink } from "lucide-react"
+import { Star } from "lucide-react"
 import { Button } from "./button"
 
 export function GitHubStars() {
@@ -43,7 +43,7 @@ export function GitHubStars() {
         </span>
       </Button>
       <BorderTrail
-        className="bg-gradient-to-l bg-blue-500"
+        className=" bg-blue-500"
         size={120}
       />
     </div>
