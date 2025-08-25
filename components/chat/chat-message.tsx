@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Markdown } from "@/components/ui/markdown"
 import { Copy, Paperclip } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface ChatMessageProps {
   message: {
@@ -18,20 +19,22 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
   const isAssistant = message.role === "assistant"
 
   return (
-    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} w-full max-w-full overflow-hidden`}>
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} w-full max-w-full`}>
       <div
         className={`${
           isUser 
-            ? "max-w-[90%] sm:max-w-[85%] md:max-w-[80%] bg-slate-700 text-white shadow-sm" 
-            : "w-full max-w-full text-slate-800 bg-white"
-        } rounded-xl sm:rounded-2xl md:rounded-3xl ${isUser ? "p-3 sm:p-4" : "p-3 sm:p-4 md:p-6"} overflow-hidden break-words`}
+            ? "max-w-[85%] sm:max-w-[80%] md:max-w-[75%] bg-primary text-primary-foreground shadow-sm" 
+            : "max-w-[95%] sm:max-w-[90%] md:max-w-[85%] text-foreground bg-background/80 backdrop-blur-sm"
+        } rounded-2xl ${isUser ? "p-4 sm:p-4" : "p-4 sm:p-5"} overflow-hidden break-words`}
       >
         {isAssistant ? (
-          <Markdown className="w-full max-w-full text-sm sm:text-base leading-relaxed prose-sm sm:prose-base overflow-hidden break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words [&>*]:word-wrap:break-word">
-            {message.content}
-          </Markdown>
+          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-p:mb-3 last:prose-p:mb-0">
+            <Markdown className="text-sm leading-relaxed [&>*]:max-w-full [&>*]:break-words [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
+              {message.content}
+            </Markdown>
+          </div>
         ) : (
-          <div className="whitespace-pre-wrap break-words word-wrap-break-word text-sm sm:text-base leading-relaxed overflow-hidden max-w-full">
+          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
             {message.content}
             {message.metadata?.files && (
               <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-300/30">
@@ -60,18 +63,21 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
           </div>
         )}
         {message.created_at && (
-          <div className="text-xs opacity-70 mt-1.5 sm:mt-2 md:mt-3 text-right">
+          <div className={cn(
+            "text-xs opacity-60 mt-2",
+            isUser ? "text-right text-primary-foreground/70" : "text-left text-muted-foreground"
+          )}>
             {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         )}
       </div>
       
       {/* Copy Button Below Message */}
-      <div className={`mt-1.5 sm:mt-2 flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`mt-2 flex ${isUser ? "justify-end" : "justify-start"}`}>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-7 w-7 sm:h-8 sm:w-8 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/50 transition-all duration-200 rounded-lg sm:rounded-xl md:rounded-2xl hover:scale-105 touch-manipulation"
+          size="sm"
+          className="h-6 px-2 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(message.content);
@@ -81,7 +87,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
             }
           }}
         >
-          <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <Copy className="h-3 w-3 mr-1" />
         </Button>
       </div>
     </div>

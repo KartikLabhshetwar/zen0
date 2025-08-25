@@ -578,7 +578,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row mobile-full-height md:h-screen bg-slate-50 overflow-hidden">
+    <div className="flex flex-col md:flex-row mobile-full-height md:h-screen bg-background overflow-hidden">
       {/* Mobile Backdrop - Only for mobile */}
       {!sidebarCollapsed && (
         <div 
@@ -613,7 +613,7 @@ export default function ChatPage() {
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden w-full max-w-full">
+      <div className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden w-full max-w-full">
         {/* Mobile Header - Only show on mobile */}
         <div className="md:hidden flex-shrink-0">
           <MobileHeader onMenuToggle={() => setSidebarCollapsed(false)} />

@@ -60,7 +60,7 @@ export default function ChatInterface() {
                   </span>
                 </div>
                 <div className={`p-3 md:p-4 rounded-2xl md:rounded-lg ${
-                  message.role === "user" ? "bg-neutral-800 text-white" : "bg-gray-100 text-gray-900"
+                  message.role === "user" ? "bg-blue-100 text-blue-900" : "bg-gray-100 text-gray-900"
                 }`}>
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                 </div>
