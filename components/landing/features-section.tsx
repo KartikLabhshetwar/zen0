@@ -11,7 +11,7 @@ const features = [
       </svg>
     ),
     title: "Blazing Fast Responses",
-    description: "Powered by OpenRouter's unified API, zen0 gives you access to hundreds of AI models from the world's leading providers.",
+    description: "Powered by Groq's ultra-fast inference API, zen0 gives you access to cutting-edge AI models with sub-second response times.",
     iconBgColor: "bg-blue-100",
     iconColor: "text-blue-600"
   },
@@ -33,7 +33,7 @@ const features = [
       </svg>
     ),
     title: "Hundreds of AI Models",
-description: "Access to models from OpenAI, Anthropic, Google, Meta, and other leading providers through OpenRouter with a single API key.",
+    description: "Access to state-of-the-art models from Meta, Mistral, Google, and other leading providers through Groq with ultra-fast inference.",
     iconBgColor: "bg-purple-100",
     iconColor: "text-purple-600"
   },

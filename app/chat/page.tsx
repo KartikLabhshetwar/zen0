@@ -18,7 +18,11 @@ import {
 
 interface ChatMessage {
   role: "user" | "assistant" | "system"
-  content: string
+  content: string | Array<{
+    type: "text" | "image_url"
+    text?: string
+    image_url?: { url: string }
+  }>
   created_at?: string
   metadata?: Record<string, any>
 }
@@ -51,6 +55,29 @@ export default function ChatPage() {
 
   // Flag to prevent multiple calls to loadLocalSettings
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  // Helper function to check if a model supports vision
+  const isVisionModel = useCallback((modelId: string) => {
+    return modelId && (modelId.includes("llama-4-scout") || modelId.includes("llama-4-maverick"));
+  }, []);
+
+  // Helper function to convert file to base64
+  const fileToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          // Remove the data:image/...;base64, prefix
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        } else {
+          reject(new Error('Failed to convert file to base64'));
+        }
+      };
+      reader.onerror = error => reject(error);
+    });
+  }, []);
 
   // Debounced input handler to prevent excessive re-renders
   const debouncedSetInput = useCallback((value: string) => {
@@ -151,22 +178,22 @@ export default function ChatPage() {
     }
     
     const settings = localStorageService.getSettings()
-    setApiKey(settings.api_keys.openrouter || "")
+            setApiKey(settings.api_keys.groq || "")
     
     // Check if API keys exist in localStorage
     const keys = localStorage.getItem("zen0-api-keys")
     if (keys) {
       const parsedKeys = JSON.parse(keys)
-      const openrouterKey = parsedKeys.find((key: any) => key.provider === "openrouter")
+      const groqKey = parsedKeys.find((key: any) => key.provider === "groq")
       const mem0Key = parsedKeys.find((key: any) => key.provider === "mem0")
       
-      if (openrouterKey && openrouterKey.key) {
-        setApiKey(openrouterKey.key)
+      if (groqKey && groqKey.key) {
+        setApiKey(groqKey.key)
         
         // Only set default model if we don't have a current conversation AND no model is currently selected
         if (!currentConversation && !selectedModel) {
           // Use the model from the API key if available, otherwise use the stored default
-          const modelToUse = openrouterKey.model || settings.default_model || "openai/gpt-4o"
+          const modelToUse = groqKey.model || settings.default_model || "llama3-8b-8192"
           setSelectedModel(modelToUse)
         }
       }
@@ -179,8 +206,8 @@ export default function ChatPage() {
       return
     }
 
-    // Only show API setup if no OpenRouter key exists
-    if (!settings.api_keys.openrouter) {
+    // Only show API setup if no Groq key exists
+    if (!settings.api_keys.groq) {
       setShowApiSetup(true)
     }
     
@@ -238,11 +265,11 @@ export default function ChatPage() {
     }
 
     // Ensure we have a valid model selected
-    const modelToUse = selectedModel || "openai/gpt-4o"
+    const modelToUse = selectedModel || "llama3-8b-8192"
     
     const newConversation = localStorageService.createConversation({
       title: "New Chat",
-      provider: "openrouter",
+      provider: "groq",
       model: modelToUse,
     })
 
@@ -308,17 +335,51 @@ export default function ChatPage() {
     setIsStreaming(true)
     setStreamingMessage("")
 
-    // Prepare user message
+    // Prepare user message with proper file handling for vision models
+    let messageContent: any = userInput;
+    
+    // If we have files and a vision model, format them properly for Groq API
+    if (files.length > 0 && isVisionModel(currentConversation.model)) {
+      const fileContents = await Promise.all(
+        files.map(async (file) => {
+          if (file.type.startsWith('image/')) {
+            // Convert image to base64 for vision models
+            const base64 = await fileToBase64(file);
+            return {
+              type: "image_url",
+              image_url: {
+                url: `data:${file.type};base64,${base64}`
+              }
+            };
+          } else {
+            // For non-image files, just include metadata
+            return {
+              type: "text",
+              text: `[File: ${file.name}]`
+            };
+          }
+        })
+      );
+      
+      messageContent = [
+        { type: "text", text: userInput },
+        ...fileContents
+      ];
+    }
+    
     const userMessage: ChatMessage = {
       role: "user",
-      content: userInput,
+      content: messageContent,
       metadata: files.length > 0 ? { files: files.map(f => ({ name: f.name, size: f.size, type: f.type })) } : undefined,
     }
     
-    // Update messages immediately for instant feedback
-    const newMessages = [...messages, userMessage]
-    setMessages(newMessages)
-    saveMessages(currentConversation.id, newMessages)
+          // Update messages immediately for instant feedback
+      const newMessages = [...messages, userMessage]
+      setMessages(newMessages)
+      saveMessages(currentConversation.id, newMessages)
+      
+      // Clear files after sending (they're now part of the message content)
+      setFiles([])
     
     // Update conversation title if it's the first message
     if (messages.length === 0) {
@@ -358,7 +419,17 @@ export default function ChatPage() {
       const firstUserMessage = cleanMessagesForAPI.find(msg => msg.role === "user");
       if (firstUserMessage && firstUserMessage.content) {
         const memoryContext = `\n\n[Previous Context: ${relevantMemories.join(" | ")}]`;
-        firstUserMessage.content += memoryContext;
+        
+        // Handle both text and multimodal content when adding memory context
+        if (typeof firstUserMessage.content === 'string') {
+          firstUserMessage.content += memoryContext;
+        } else if (Array.isArray(firstUserMessage.content)) {
+          // For multimodal messages, add memory context to the text part
+          const textItem = firstUserMessage.content.find(item => item.type === "text");
+          if (textItem && textItem.text) {
+            textItem.text += memoryContext;
+          }
+        }
       }
       
       cleanMessagesForAPI.unshift({
@@ -452,24 +523,50 @@ export default function ChatPage() {
       if (mem0Service) {
         // Check if this message contains personal information that should be stored as profile
         const userMessage = finalMessages.find(msg => msg.role === "user");
-        if (userMessage && userMessage.content && (
-            userMessage.content.toLowerCase().includes("my name is") || 
-            userMessage.content.toLowerCase().includes("i am") || 
-            userMessage.content.toLowerCase().includes("i'm"))) {
-          // Store as user profile for future reference (only if service is available)
-          if (mem0Service && mem0Service.isReady()) {
-            mem0Service.storeUserProfile(userMessage.content, { 
-              conversation_id: currentConversation.id,
-              type: "user_introduction"
-            });
+        if (userMessage && userMessage.content) {
+          // Handle both text-only and multimodal content
+          let textContent = "";
+          if (Array.isArray(userMessage.content)) {
+            // For multimodal messages, extract text content
+            textContent = userMessage.content
+              .filter(item => item.type === "text")
+              .map(item => item.text)
+              .join(" ");
+          } else {
+            // For text-only messages
+            textContent = userMessage.content;
+          }
+          
+          if (textContent && (
+              textContent.toLowerCase().includes("my name is") || 
+              textContent.toLowerCase().includes("i am") || 
+              textContent.toLowerCase().includes("i'm"))) {
+            // Store as user profile for future reference (only if service is available)
+            if (mem0Service && mem0Service.isReady()) {
+              mem0Service.storeUserProfile(textContent, { 
+                conversation_id: currentConversation.id,
+                type: "user_introduction"
+              });
+            }
           }
         }
         
         // Mem0 operations in background - non-blocking (only if service is available)
         if (mem0Service && mem0Service.isReady()) {
+          // Convert multimodal messages to text-only for Mem0 storage
+          const textOnlyMessages = finalMessages.map(msg => ({
+            role: msg.role,
+            content: typeof msg.content === 'string' 
+              ? msg.content 
+              : msg.content
+                  .filter(item => item.type === "text" && item.text)
+                  .map(item => item.text)
+                  .join(" ") || "[Image message]"
+          }));
+          
           Promise.all([
             // Store current conversation memories (now global)
-            mem0Service.storeConversation(currentConversation.id, finalMessages)
+            mem0Service.storeConversation(currentConversation.id, textOnlyMessages)
           ]).catch((error: Error) => {
             console.error("Background Mem0 operations failed:", error);
             // Don't retry immediately to avoid API throttling
@@ -554,7 +651,7 @@ export default function ChatPage() {
             const modelMap: Record<string, string> = {}
 
             parsedKeys.forEach((key: any) => {
-              if (key.provider === "openrouter") {
+              if (key.provider === "groq") {
                 keyMap[key.provider] = key.key
                 if (key.model) {
                   modelMap[key.provider] = key.model
@@ -564,11 +661,11 @@ export default function ChatPage() {
               }
             })
 
-            setApiKey(keyMap.openrouter || "")
+            setApiKey(keyMap.groq || "")
             setMem0ApiKey(keyMap.mem0 || "")
-            setSelectedModel(modelMap.openrouter || "openai/gpt-4o")
+            setSelectedModel(modelMap.groq || "llama3-8b-8192")
 
-            if (keyMap.openrouter) {
+            if (keyMap.groq) {
               setShowApiSetup(false)
             }
           }

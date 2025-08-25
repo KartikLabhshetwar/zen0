@@ -7,19 +7,33 @@ export async function POST(req: NextRequest) {
   try {
     const { messages, model, apiKey, conversationId } = await req.json()
 
-    // Clean messages to remove any unsupported properties for OpenRouter API
+    // Clean messages to remove any unsupported properties for Groq API
     const cleanMessages = messages.map((msg: any) => {
-      // Only keep the properties that OpenRouter API supports
+      // Only keep the properties that Groq API supports
       const { role, content } = msg;
+      
+      // For vision models, ensure content is properly formatted
+      if (Array.isArray(content)) {
+        // This is a multimodal message, validate the structure
+        const validatedContent = content.map(item => {
+          if (item.type === "text" && item.text) {
+            return { type: "text", text: item.text };
+          } else if (item.type === "image_url" && item.image_url?.url) {
+            return { type: "image_url", image_url: { url: item.image_url.url } };
+          }
+          return null;
+        }).filter(Boolean);
+        
+        return { role, content: validatedContent };
+      }
+      
       return { role, content };
     });
 
-    const apiUrl = "https://openrouter.ai/api/v1/chat/completions"
+    const apiUrl = "https://api.groq.com/openai/v1/chat/completions"
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://zen0.vercel.app", // Optional: for OpenRouter rankings
-      "X-Title": "Zen0", // Optional: for OpenRouter rankings
     }
     const body = {
       model,

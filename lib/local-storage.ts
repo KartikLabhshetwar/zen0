@@ -11,7 +11,11 @@ export interface Message {
   id: string
   conversation_id: string
   role: "user" | "assistant" | "system"
-  content: string
+  content: string | Array<{
+    type: "text" | "image_url"
+    text?: string
+    image_url?: { url: string }
+  }>
   metadata?: Record<string, any>
   created_at: string
 }
@@ -139,8 +143,8 @@ class LocalStorageService {
     
     return {
       api_keys: {},
-      default_provider: "openrouter",
-      default_model: "openai/gpt-4o",
+      default_provider: "groq",
+      default_model: "llama3-8b-instant",
       memory_enabled: true,
     }
   }

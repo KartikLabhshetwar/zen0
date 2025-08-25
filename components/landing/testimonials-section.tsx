@@ -7,7 +7,7 @@ const testimonials = [
   {
     name: "Alex Chen",
     role: "AI Researcher",
-    content: "zen0's speed is incredible! The OpenRouter integration gives me access to hundreds of models. Perfect for rapid prototyping and research.",
+    content: "zen0's speed is incredible! The Groq integration gives me access to cutting-edge models with sub-second responses. Perfect for rapid prototyping and research.",
     rating: 5,
     avatar: "AC"
   },

@@ -4,7 +4,8 @@ import { Paperclip, X, ArrowUp, ChevronUp } from "lucide-react"
 import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction } from "@/components/ui/prompt-input"
 import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOpenRouterModels } from "@/lib/hooks/use-openrouter-models"
+import { useGroqModels, type GroqModel } from "@/lib/hooks/use-groq-models"
+import { SpeechInput } from "@/components/ui/speech-input"
 import { toast } from "sonner"
 
 interface ChatInputProps {
@@ -32,7 +33,7 @@ export const ChatInput = memo(function ChatInput({
   selectedModel,
   onModelChange
 }: ChatInputProps) {
-  const { models, loading } = useOpenRouterModels({
+  const { models, loading } = useGroqModels({
     apiKey,
     autoFetch: !!apiKey,
   })
@@ -92,44 +93,68 @@ export const ChatInput = memo(function ChatInput({
           onSubmit={handleSubmit}
           className="w-full max-w-3xl mx-auto"
         >
-        {files.length > 0 && (
-          <div className="grid grid-cols-1 gap-2 pb-3">
-            {files.map((file, index) => (
-              <div
-                key={index}
-                className="bg-slate-100 flex w-full items-center justify-between gap-2 rounded-xl sm:rounded-2xl px-3 py-2.5 sm:py-2 text-sm border border-slate-200/50"
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {file.type.startsWith('image/') ? (
-                    <div className="w-5 h-5 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs text-slate-600">🖼️</span>
-                    </div>
-                  ) : (
-                    <Paperclip className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                  )}
-                  <span className="max-w-[120px] sm:max-w-[100px] truncate text-sm text-slate-700 font-medium">
-                    {file.name}
-                  </span>
+          {files.length > 0 && (
+            <div className="space-y-2 pb-3">
+              {selectedModel && (selectedModel.includes("llama-4-scout") || selectedModel.includes("llama-4-maverick")) && (
+                <div className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                  🎯 <strong>Vision Model Active:</strong> Images will be analyzed by the AI. Ask questions about what you see!
                 </div>
-                <button
-                  onClick={() => handleFileRemove(index)}
-                  className="hover:bg-slate-200 rounded-xl p-1.5 sm:p-1 transition-all duration-200 flex-shrink-0 hover:scale-105 touch-manipulation min-h-[36px] min-w-[36px] sm:min-h-[auto] sm:min-w-[auto] flex items-center justify-center"
-                >
-                  <X className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-600" />
-                </button>
+              )}
+              <div className="grid grid-cols-1 gap-2">
+                {files.map((file, index) => (
+                  <div
+                    key={index}
+                    className="bg-slate-100 flex w-full items-center justify-between gap-2 rounded-xl sm:rounded-2xl px-3 py-2.5 sm:py-2 text-sm border border-slate-200/50"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {file.type.startsWith('image/') ? (
+                        <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <img 
+                            src={URL.createObjectURL(file)} 
+                            alt={file.name}
+                            className="w-full h-full object-cover"
+                            onLoad={(e) => {
+                              // Clean up the object URL after the image loads
+                              URL.revokeObjectURL((e.target as HTMLImageElement).src);
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <Paperclip className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                      )}
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm text-slate-700 font-medium truncate">
+                          {file.name}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleFileRemove(index)}
+                      className="hover:bg-slate-200 rounded-xl p-1.5 sm:p-1 transition-all duration-200 flex-shrink-0 hover:scale-105 touch-manipulation min-h-[36px] min-w-[36px] sm:min-h-[auto] sm:min-w-[auto] flex items-center justify-center"
+                    >
+                      <X className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-600" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
 
-        <PromptInputTextarea 
-          placeholder="Ask me anything..."
-          disabled={isStreaming}
-          className="min-h-[50px] sm:min-h-[60px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400 rounded-xl sm:rounded-2xl text-base leading-relaxed px-4 py-3"
-        />
+          <PromptInputTextarea 
+            placeholder={
+              files.length > 0 && selectedModel && (selectedModel.includes("llama-4-scout") || selectedModel.includes("llama-4-maverick"))
+                ? "Ask me about the uploaded image(s)..."
+                : "Ask me anything..."
+            }
+            disabled={isStreaming}
+            className="min-h-[50px] sm:min-h-[60px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400 rounded-xl sm:rounded-2xl text-base leading-relaxed px-4 py-3"
+          />
 
-        <PromptInputActions className="flex items-center justify-between gap-3 sm:gap-2 pt-3">
+          <PromptInputActions className="flex items-center justify-between gap-3 sm:gap-2 pt-3">
           <div className="flex items-center gap-3 sm:gap-2">
             <PromptInputAction tooltip="Attach files">
               <FileUploadTrigger asChild>
@@ -139,6 +164,15 @@ export const ChatInput = memo(function ChatInput({
               </FileUploadTrigger>
             </PromptInputAction>
 
+            <PromptInputAction tooltip="Speech to text">
+              <SpeechInput
+                onTranscriptChange={(transcript) => {
+                  const currentInput = input
+                  onInputChange(currentInput + (currentInput ? ' ' : '') + transcript)
+                }}
+              />
+            </PromptInputAction>
+
             {apiKey ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -146,7 +180,7 @@ export const ChatInput = memo(function ChatInput({
                     className="hover:bg-slate-100 flex h-10 sm:h-9 px-3 sm:px-3 cursor-pointer items-center gap-2 rounded-xl sm:rounded-2xl transition-all duration-200 border border-slate-200/50 touch-manipulation min-w-[120px]"
                   >
                     <span className="text-xs sm:text-xs text-slate-600 font-medium truncate max-w-[100px]">
-                      {selectedModel ? selectedModel.replace('llama-', '').replace('-instant', '') : 'Model'}
+                      {selectedModel ? selectedModel.replace('llama3-', '').replace('mixtral-', '').replace('-32768', '').replace('-8192', '').replace('-4096', '') : 'Model'}
                     </span>
                     <ChevronUp className="w-3.5 h-3.5 sm:w-3 sm:h-3 text-slate-500 flex-shrink-0" />
                   </div>
@@ -156,7 +190,7 @@ export const ChatInput = memo(function ChatInput({
                   align="start"
                   className="w-72 sm:w-80 max-h-80 sm:max-h-96 overflow-y-auto"
                 >
-                  {memoizedModels.map((model) => (
+                  {memoizedModels.map((model: GroqModel) => (
                     <DropdownMenuItem
                       key={model.id}
                       onClick={() => {
@@ -175,32 +209,18 @@ export const ChatInput = memo(function ChatInput({
                           <span className="text-xs text-slate-500 bg-blue-100 hover:text-blue-700 px-2 py-1 rounded-lg">
                             {formatContextWindow(model.context_window)}
                           </span>
-                          {/* Show key capabilities */}
+                          {/* Show vision capability for multimodal models */}
                           {model.capabilities.vision && (
                             <span className="text-xs text-slate-500 bg-purple-100 px-2 py-1 rounded-lg">
                               👁️ Vision
                             </span>
                           )}
+                          {/* Show audio capability for Whisper models */}
                           {model.capabilities.audio && (
                             <span className="text-xs text-slate-500 bg-indigo-100 px-2 py-1 rounded-lg">
                               🎤 Audio
                             </span>
                           )}
-                          {model.capabilities.web_search && (
-                            <span className="text-xs text-slate-500 bg-green-100 px-2 py-1 rounded-lg">
-                              🔍 Web
-                            </span>
-                          )}
-                          {model.capabilities.reasoning && (
-                            <span className="text-xs text-slate-500 bg-orange-100 px-2 py-1 rounded-lg">
-                              🧠 Reasoning
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Quick capability summary */}
-                        <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                          {Object.values(model.capabilities).filter(Boolean).length} features
                         </div>
                       </div>
                       {selectedModel === model.id && (

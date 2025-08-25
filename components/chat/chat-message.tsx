@@ -7,7 +7,11 @@ import { cn } from "@/lib/utils"
 interface ChatMessageProps {
   message: {
     role: "user" | "assistant" | "system"
-    content: string
+    content: string | Array<{
+      type: "text" | "image_url"
+      text?: string
+      image_url?: { url: string }
+    }>
     created_at?: string
     metadata?: Record<string, any>
   }
@@ -17,6 +21,38 @@ interface ChatMessageProps {
 export function ChatMessage({ message, index }: ChatMessageProps) {
   const isUser = message.role === "user"
   const isAssistant = message.role === "assistant"
+
+  // Helper function to render user message content (text + images)
+  const renderUserMessageContent = (content: string | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>) => {
+    if (typeof content === 'string') {
+      return content;
+    }
+    
+    return (
+      <div className="space-y-2">
+        {content.map((item, itemIndex) => {
+          if (item.type === "text" && item.text) {
+            return (
+              <div key={itemIndex} className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                {item.text}
+              </div>
+            );
+          } else if (item.type === "image_url" && item.image_url) {
+            return (
+              <div key={itemIndex} className="flex flex-col gap-2">
+                <img 
+                  src={item.image_url.url} 
+                  alt="Uploaded image" 
+                  className="max-w-full max-h-64 rounded-lg object-contain border border-gray-200"
+                />
+              </div>
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} w-full max-w-full`}>
@@ -30,12 +66,12 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
         {isAssistant ? (
           <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-p:mb-3 last:prose-p:mb-0">
             <Markdown className="text-sm leading-relaxed [&>*]:max-w-full [&>*]:break-words [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
-              {message.content}
+              {typeof message.content === 'string' ? message.content : 'Image analysis response'}
             </Markdown>
           </div>
         ) : (
           <div className="text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
-            {message.content}
+            {renderUserMessageContent(message.content)}
             {message.metadata?.files && (
               <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-300/30">
                 <div className="space-y-2">
@@ -80,7 +116,17 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
           className="h-6 px-2 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(message.content);
+              let textToCopy = "";
+              if (typeof message.content === 'string') {
+                textToCopy = message.content;
+              } else {
+                // For multimodal messages, extract text content
+                textToCopy = message.content
+                  .filter(item => item.type === "text" && item.text)
+                  .map(item => item.text)
+                  .join(" ");
+              }
+              await navigator.clipboard.writeText(textToCopy);
               toast.success("Message copied to clipboard!");
             } catch (error) {
               toast.error("Failed to copy message");

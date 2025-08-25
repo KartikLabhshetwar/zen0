@@ -8,7 +8,11 @@ import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ui/r
 interface ChatMessagesProps {
   messages: Array<{
     role: "user" | "assistant" | "system"
-    content: string
+    content: string | Array<{
+      type: "text" | "image_url"
+      text?: string
+      image_url?: { url: string }
+    }>
     created_at?: string
     metadata?: Record<string, any>
   }>

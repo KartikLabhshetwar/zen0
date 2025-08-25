@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 
-export interface OpenRouterModel {
+export interface GroqModel {
   id: string
   name: string
   description: string
@@ -24,26 +24,26 @@ export interface OpenRouterModel {
   }
 }
 
-interface UseOpenRouterModelsOptions {
+interface UseGroqModelsOptions {
   apiKey?: string
   autoFetch?: boolean
   onError?: (error: string) => void
 }
 
-interface UseOpenRouterModelsReturn {
-  models: OpenRouterModel[]
+interface UseGroqModelsReturn {
+  models: GroqModel[]
   loading: boolean
   error: string | null
   fetchModels: () => Promise<void>
   refreshModels: () => Promise<void>
 }
 
-export function useOpenRouterModels({
+export function useGroqModels({
   apiKey,
   autoFetch = true,
   onError,
-}: UseOpenRouterModelsOptions = {}): UseOpenRouterModelsReturn {
-  const [models, setModels] = useState<OpenRouterModel[]>([])
+}: UseGroqModelsOptions = {}): UseGroqModelsReturn {
+  const [models, setModels] = useState<GroqModel[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,7 +58,7 @@ export function useOpenRouterModels({
     setError(null)
 
     try {
-      const response = await fetch("/api/openrouter/models", {
+      const response = await fetch("/api/groq/models", {
         headers: {
           Authorization: `Bearer ${apiKey}`,
         },
