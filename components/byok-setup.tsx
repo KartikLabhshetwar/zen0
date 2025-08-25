@@ -177,8 +177,6 @@ export function BYOKSetup() {
     } else if (provider === "mem0") {
       setMem0ApiKey("")
     }
-    
-    toast.success(`${provider === "groq" ? "Groq" : "Mem0"} API key removed`)
   }
 
   const handleEditKey = (provider: string) => {

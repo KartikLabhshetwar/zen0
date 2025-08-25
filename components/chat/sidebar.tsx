@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Plus, Settings, Database, X, Trash2 } from "lucide-react"
 import { Conversation } from "@/lib/local-storage"
-import { toast } from "sonner"
 
 interface SidebarProps {
   conversations: Conversation[]
@@ -42,7 +41,6 @@ export function Sidebar({
               size="sm"
               onClick={() => {
                 onSidebarToggle()
-                toast.info("Sidebar toggled")
               }}
               className="md:hidden h-8 w-8 p-0 rounded-2xl hover:bg-slate-100 transition-all duration-200"
             >
@@ -68,7 +66,6 @@ export function Sidebar({
                 className="w-full justify-start h-auto py-3 px-2 text-left hover:bg-slate-100 rounded-2xl transition-all duration-200"
                 onClick={() => {
                   onConversationSelect(conv)
-                  toast.success(`Switched to: ${conv.title}`)
                 }}
               >
                 <div className="min-w-0 flex-1">
@@ -101,7 +98,6 @@ export function Sidebar({
             className="w-full justify-start h-10 text-slate-700 hover:bg-slate-100 rounded-2xl transition-all duration-200" 
             onClick={() => {
               onShowApiSetup()
-              toast.info("Opening API Setup...")
             }}
           >
             <Settings className="w-4 h-4 mr-2" />
@@ -112,7 +108,6 @@ export function Sidebar({
             className="w-full justify-start h-10 text-slate-700 hover:bg-slate-100 rounded-2xl transition-all duration-200" 
             onClick={() => {
               onShowDataManager()
-              toast.info("Opening Data Manager...")
             }}
           >
             <Database className="w-4 h-4 mr-2" />

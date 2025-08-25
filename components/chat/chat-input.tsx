@@ -61,7 +61,6 @@ export const ChatInput = memo(function ChatInput({
 
   const handleModelSelect = useCallback((modelId: string) => {
     onModelChange?.(modelId)
-    toast.success(`Model selected: ${modelId}`)
   }, [onModelChange])
 
   const formatContextWindow = useCallback((contextWindow: number) => {

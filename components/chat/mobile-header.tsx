@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
-import { toast } from "sonner"
 
 interface MobileHeaderProps {
   onMenuToggle: () => void
@@ -9,7 +8,6 @@ interface MobileHeaderProps {
 export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
   const handleMenuToggle = () => {
     onMenuToggle()
-    toast.info("Menu toggled")
   }
 
   return (

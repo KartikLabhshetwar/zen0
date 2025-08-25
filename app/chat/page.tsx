@@ -93,8 +93,7 @@ export default function ChatPage() {
       const hasSeenMem0Welcome = sessionStorage.getItem('mem0-welcome-shown');
       if (!hasSeenMem0Welcome) {
         toast.success("🎉 Mem0 AI Memory enabled! Your conversations will now be enhanced with intelligent memory.", {
-          duration: 5000,
-          description: "The AI will learn from your interactions and provide better, more contextual responses."
+          duration: 2000,
         });
         sessionStorage.setItem('mem0-welcome-shown', 'true');
       }
@@ -287,7 +286,6 @@ export default function ChatPage() {
     // Also save the model preference to user settings for future use
     localStorageService.updateDefaultModel(model)
     
-    toast.success(`Model changed to ${model}`)
   }, [currentConversation, conversations, localStorageService])
 
   const sendMessage = useCallback(async () => {

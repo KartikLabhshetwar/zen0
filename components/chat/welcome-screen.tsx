@@ -9,7 +9,6 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onNewConversation }: WelcomeScreenProps) {
   const handleNewConversation = () => {
     onNewConversation()
-    toast.success("Starting new conversation!")
   }
 
   return (
