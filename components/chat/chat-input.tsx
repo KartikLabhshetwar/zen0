@@ -84,19 +84,20 @@ export const ChatInput = memo(function ChatInput({
       onFilesAdded={handleFileChange}
       accept=".jpg,.jpeg,.png,.pdf,.docx,.txt,.md"
     >
-      <PromptInput
-        value={input}
-        onValueChange={onInputChange}
-        isLoading={isStreaming}
-        onSubmit={handleSubmit}
-        className="w-full max-w-3xl mx-auto"
-      >
+      <div className="p-3 sm:p-4 md:p-6">
+        <PromptInput
+          value={input}
+          onValueChange={onInputChange}
+          isLoading={isStreaming}
+          onSubmit={handleSubmit}
+          className="w-full max-w-3xl mx-auto"
+        >
         {files.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-3">
+          <div className="grid grid-cols-1 gap-2 pb-3">
             {files.map((file, index) => (
               <div
                 key={index}
-                className="bg-slate-100 flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-sm border border-slate-200/50"
+                className="bg-slate-100 flex w-full items-center justify-between gap-2 rounded-xl sm:rounded-2xl px-3 py-2.5 sm:py-2 text-sm border border-slate-200/50"
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -107,15 +108,15 @@ export const ChatInput = memo(function ChatInput({
                   ) : (
                     <Paperclip className="w-4 h-4 text-slate-600 flex-shrink-0" />
                   )}
-                  <span className="max-w-[100px] truncate text-sm text-slate-700 font-medium">
+                  <span className="max-w-[120px] sm:max-w-[100px] truncate text-sm text-slate-700 font-medium">
                     {file.name}
                   </span>
                 </div>
                 <button
                   onClick={() => handleFileRemove(index)}
-                  className="hover:bg-slate-200 rounded-xl p-1 transition-all duration-200 flex-shrink-0 hover:scale-105"
+                  className="hover:bg-slate-200 rounded-xl p-1.5 sm:p-1 transition-all duration-200 flex-shrink-0 hover:scale-105 touch-manipulation min-h-[36px] min-w-[36px] sm:min-h-[auto] sm:min-w-[auto] flex items-center justify-center"
                 >
-                  <X className="w-3.5 h-3.5 text-slate-600" />
+                  <X className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-600" />
                 </button>
               </div>
             ))}
@@ -125,15 +126,15 @@ export const ChatInput = memo(function ChatInput({
         <PromptInputTextarea 
           placeholder="Ask me anything..."
           disabled={isStreaming}
-          className="min-h-[60px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400 rounded-2xl"
+          className="min-h-[50px] sm:min-h-[60px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400 rounded-xl sm:rounded-2xl text-base leading-relaxed px-4 py-3"
         />
 
-        <PromptInputActions className="flex items-center justify-between gap-2 pt-3">
-          <div className="flex items-center gap-2">
+        <PromptInputActions className="flex items-center justify-between gap-3 sm:gap-2 pt-3">
+          <div className="flex items-center gap-3 sm:gap-2">
             <PromptInputAction tooltip="Attach files">
               <FileUploadTrigger asChild>
-                <div className="hover:bg-slate-100 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-105">
-                  <Paperclip className="text-slate-600 w-4 h-4" />
+                <div className="hover:bg-slate-100 flex h-10 w-10 sm:h-9 sm:w-9 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-105 touch-manipulation">
+                  <Paperclip className="text-slate-600 w-5 h-5 sm:w-4 sm:h-4" />
                 </div>
               </FileUploadTrigger>
             </PromptInputAction>
@@ -142,18 +143,18 @@ export const ChatInput = memo(function ChatInput({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <div 
-                    className="hover:bg-slate-100 flex h-9 px-3 cursor-pointer items-center gap-2 rounded-2xl transition-all duration-200 border border-slate-200/50"
+                    className="hover:bg-slate-100 flex h-10 sm:h-9 px-3 sm:px-3 cursor-pointer items-center gap-2 rounded-xl sm:rounded-2xl transition-all duration-200 border border-slate-200/50 touch-manipulation min-w-[120px]"
                   >
-                    <span className="text-xs text-slate-600 font-medium">
-                      {selectedModel ? selectedModel : 'Model'}
+                    <span className="text-xs sm:text-xs text-slate-600 font-medium truncate max-w-[100px]">
+                      {selectedModel ? selectedModel.replace('llama-', '').replace('-instant', '') : 'Model'}
                     </span>
-                    <ChevronUp className="w-3 h-3 text-slate-500" />
+                    <ChevronUp className="w-3.5 h-3.5 sm:w-3 sm:h-3 text-slate-500 flex-shrink-0" />
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent 
                   side="top" 
                   align="start"
-                  className="w-80 max-h-96 overflow-y-auto"
+                  className="w-72 sm:w-80 max-h-80 sm:max-h-96 overflow-y-auto"
                 >
                   {memoizedModels.map((model) => (
                     <DropdownMenuItem
@@ -161,13 +162,13 @@ export const ChatInput = memo(function ChatInput({
                       onClick={() => {
                         handleModelSelect(model.id)
                       }}
-                      className="flex items-center justify-between gap-3 py-3 px-3 cursor-pointer hover:bg-slate-50 rounded-xl"
+                      className="flex items-center justify-between gap-3 py-3 px-3 cursor-pointer hover:bg-slate-50 rounded-xl touch-manipulation"
                     >
                       <div className="flex flex-col gap-1 min-w-0 flex-1">
                         <span className="text-sm font-medium text-slate-900 truncate">
                           {model.id}
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
                             {model.owned_by}
                           </span>
@@ -184,7 +185,7 @@ export const ChatInput = memo(function ChatInput({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <div className="text-xs text-slate-400 px-3 py-2">
+              <div className="text-xs text-slate-400 px-3 py-2 sm:py-2">
                 No API key
               </div>
             )}
@@ -194,22 +195,23 @@ export const ChatInput = memo(function ChatInput({
             <Button
               variant="default"
               size="icon"
-              className="h-9 w-9 rounded-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 shadow-sm"
+              className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 shadow-sm touch-manipulation"
               onClick={handleSubmit}
               disabled={isStreaming || (!input.trim() && files.length === 0)}
             >
-              <ArrowUp className="w-4 h-4" />
+              <ArrowUp className="w-5 h-5 sm:w-4 sm:h-4" />
             </Button>
           </PromptInputAction>
         </PromptInputActions>
-      </PromptInput>
+        </PromptInput>
+      </div>
 
       <FileUploadContent>
-        <div className="flex min-h-[200px] w-full items-center justify-center backdrop-blur-sm">
-          <div className="bg-white/95 m-4 w-full max-w-sm rounded-xl border border-gray-200 p-6 shadow-lg">
+        <div className="flex min-h-[200px] w-full items-center justify-center backdrop-blur-sm p-4">
+          <div className="bg-white/95 w-full max-w-sm rounded-xl border border-gray-200 p-6 shadow-lg">
             <div className="mb-3 flex justify-center">
               <svg
-                className="text-gray-400 w-6 h-6"
+                className="text-gray-400 w-8 h-8 sm:w-6 sm:h-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -222,10 +224,10 @@ export const ChatInput = memo(function ChatInput({
                 />
               </svg>
             </div>
-            <h3 className="mb-2 text-center text-sm font-medium text-gray-900">
+            <h3 className="mb-2 text-center text-base sm:text-sm font-medium text-gray-900">
               Drop files to upload
             </h3>
-            <p className="text-gray-600 text-center text-xs">
+            <p className="text-gray-600 text-center text-sm sm:text-xs">
               Release to add files to your message
             </p>
           </div>

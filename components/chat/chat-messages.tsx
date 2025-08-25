@@ -50,8 +50,8 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
   }, [streamingMessage, isStreaming])
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 h-full p-2 sm:p-4">
-      <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto pb-4">
+    <ScrollArea ref={scrollAreaRef} className="flex-1 h-full p-2 sm:p-4 md:p-6 mobile-scroll">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6 w-full max-w-full sm:max-w-4xl mx-auto pb-4 sm:pb-6 overflow-hidden">
         {messages.map((message, index) => (
           <ChatMessage key={index} message={message} index={index} />
         ))}
@@ -59,19 +59,21 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
         {/* Show AI thinking process when available, otherwise show shimmer loading */}
         {isProcessing && (
           showReasoning && reasoningText && reasoningText.includes('<think>') ? (
-            <Reasoning isStreaming={isProcessing} open={true}>
-              <ReasoningTrigger>AI is thinking...</ReasoningTrigger>
-              <ReasoningContent 
-                className="ml-2 border-l-2 border-l-slate-200 px-2 pb-1 dark:border-l-slate-700"
-                markdown={false}
-              >
-                <div className="text-gray-700 dark:text-gray-300 text-base leading-relaxed whitespace-pre-wrap">
-                  {reasoningText.match(/<think>([\s\S]*?)<\/think>/)?.[1]?.trim() || 'Thinking...'}
-                </div>
-              </ReasoningContent>
-            </Reasoning>
+            <div className="px-1 sm:px-0">
+              <Reasoning isStreaming={isProcessing} open={true}>
+                <ReasoningTrigger>AI is thinking...</ReasoningTrigger>
+                <ReasoningContent 
+                  className="ml-2 border-l-2 border-l-slate-200 px-2 pb-1 dark:border-l-slate-700"
+                  markdown={false}
+                >
+                  <div className="text-gray-700 dark:text-gray-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+                    {reasoningText.match(/<think>([\s\S]*?)<\/think>/)?.[1]?.trim() || 'Thinking...'}
+                  </div>
+                </ReasoningContent>
+              </Reasoning>
+            </div>
           ) : (
-            <div className="flex items-center gap-2 text-gray-600 text-base">
+            <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base px-1 sm:px-0">
               <Loader variant="text-shimmer" size="sm" />
               <span>Thinking...</span>
             </div>
@@ -80,21 +82,21 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
 
         {/* Show streaming message when available */}
         {streamingMessage && (
-          <div className="w-full max-w-4xl rounded-2xl p-4 sm:p-6 text-gray-900">
+          <div className="w-full max-w-full rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 text-gray-900 overflow-hidden break-words">
             {(() => {
               // Check if the content contains HTML tags
               if (streamingMessage.includes('<') && streamingMessage.includes('>')) {
                 // If it's HTML, render it safely with custom CSS
                 return (
                   <div 
-                    className="prose prose-base sm:prose-base max-w-none text-gray-800 leading-relaxed chat-html-content"
+                    className="prose prose-sm sm:prose-base w-full max-w-full text-gray-800 leading-relaxed chat-html-content overflow-hidden break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words"
                     dangerouslySetInnerHTML={{ __html: streamingMessage }}
                   />
                 );
               } else {
                 // If it's regular text/markdown, use the Markdown component
                 return (
-                  <Markdown className="max-w-none prose-base sm:prose-base">
+                  <Markdown className="w-full max-w-full prose-sm sm:prose-base overflow-hidden break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
                     {streamingMessage}
                   </Markdown>
                 );

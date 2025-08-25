@@ -25,6 +25,55 @@
   /* Better mobile scrolling */
   .mobile-scroll {
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  
+  /* Mobile-specific touch improvements */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Prevent text selection on mobile for UI elements */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Better mobile tap targets */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile-first responsive text */
+  .mobile-text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  @media (min-width: 640px) {
+    .mobile-text-sm {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+  }
+  
+  /* Improved mobile viewport handling */
+  .mobile-full-height {
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  }
+  
+  /* Better mobile focus states */
+  .mobile-focus {
+    outline: none;
+  }
+  
+  .mobile-focus:focus {
+    outline: 2px solid rgb(59 130 246);
+    outline-offset: 2px;
   }
 }
 
@@ -130,11 +179,19 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    /* Prevent iOS zoom on input focus */
+    -webkit-text-size-adjust: 100%;
+  }
+  
   body {
     @apply bg-background text-foreground;
     /* Better font rendering on mobile */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent elastic scrolling on iOS */
+    overscroll-behavior-y: none;
   }
   
   /* Better touch targets for mobile */
@@ -144,12 +201,34 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* Improve touch response */
+    touch-action: manipulation;
+  }
+  
+  /* Mobile input improvements */
+  input, textarea {
+    /* Prevent zoom on iOS */
+    font-size: max(16px, 1em);
+  }
+  
+  @media (max-width: 767px) {
+    input, textarea {
+      font-size: 16px; /* Prevent zoom on mobile */
+    }
   }
   
   /* Improved focus states for accessibility */
   *:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+  }
+  
+  /* Better mobile scrollbar */
+  @media (max-width: 767px) {
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
   }
 }
 
@@ -170,4 +249,132 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
+}
+
+/* Mobile-specific chat styles */
+@media (max-width: 767px) {
+  .chat-html-content {
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  .chat-html-content h1,
+  .chat-html-content h2,
+  .chat-html-content h3 {
+    font-size: 1.1em;
+    margin-bottom: 0.5em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .chat-html-content p {
+    margin-bottom: 0.75em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  .chat-html-content ul,
+  .chat-html-content ol {
+    margin-left: 1em;
+    margin-bottom: 0.75em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .chat-html-content li {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  .chat-html-content code {
+    font-size: 0.85em;
+    padding: 0.2em 0.4em;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 0.25em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all;
+  }
+  
+  .chat-html-content pre {
+    font-size: 0.8em;
+    padding: 1em;
+    margin-bottom: 1em;
+    overflow-x: auto;
+    border-radius: 0.5em;
+    background-color: rgba(0, 0, 0, 0.05);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .chat-html-content pre code {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+}
+
+/* Prevent horizontal scroll on mobile */
+@media (max-width: 767px) {
+  body {
+    overflow-x: hidden;
+  }
+  
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Force word wrapping for all text content */
+  p, div, span, h1, h2, h3, h4, h5, h6, li, td, th {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  /* Special handling for code and pre elements */
+  code, pre {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  
+  /* Prose content specific fixes */
+  .prose {
+    max-width: 100% !important;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  .prose * {
+    max-width: 100% !important;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  .prose pre {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .prose code {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all;
+  }
 }

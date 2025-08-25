@@ -17,9 +17,9 @@ export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
         variant="ghost"
         size="icon"
         onClick={handleMenuToggle}
-        className="h-9 px-3 border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl transition-all duration-200"
+        className="h-10 w-10 sm:h-9 sm:w-9 border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl transition-all duration-200 touch-manipulation"
       >
-        <Menu className="h-4 w-4" />
+        <Menu className="h-5 w-5 sm:h-4 sm:w-4" />
       </Button>
     </div>
   )
