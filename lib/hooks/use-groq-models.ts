@@ -5,7 +5,7 @@ export interface GroqModel {
   name: string
   description: string
   context_window: number
-  max_tokens: number
+  max_completion_tokens: number
   provider: string
   pricing: {
     prompt: number

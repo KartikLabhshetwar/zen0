@@ -4,7 +4,10 @@ import { memo, useId, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
 import { CodeBlock, CodeBlockCode } from "./code-block"
+import "katex/dist/katex.min.css"
 
 export type MarkdownProps = {
   children: string
@@ -149,6 +152,17 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       </blockquote>
     )
   },
+  // Math block styling
+  div: function DivComponent({ className, children, ...props }) {
+    if (className?.includes('math-display')) {
+      return (
+        <div className="my-4 p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-x-auto" {...props}>
+          {children}
+        </div>
+      )
+    }
+    return <div {...props}>{children}</div>
+  },
   hr: function HrComponent({ ...props }) {
     return (
       <hr className="my-6 border-gray-300" {...props} />
@@ -180,7 +194,8 @@ const MemoizedMarkdownBlock = memo(
   }) {
     return (
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
+        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={components}
       >
         {content}

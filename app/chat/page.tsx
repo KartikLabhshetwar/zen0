@@ -724,8 +724,6 @@ export default function ChatPage() {
                 streamingMessage={streamingMessage}
                 isStreaming={isStreaming}
                 isProcessing={isProcessing}
-                reasoningText={reasoningText}
-                showReasoning={showReasoning}
               />
             </div>
             <div className="flex-shrink-0 border-t border-slate-100">

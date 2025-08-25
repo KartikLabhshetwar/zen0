@@ -8,7 +8,7 @@ interface GroqModel {
   active: boolean
   context_window: number
   public_apps: any
-  max_completion_tokens: number
+  max_completion_tokens?: number
 }
 
 interface GroqModelsResponse {
@@ -40,14 +40,29 @@ export async function GET(req: NextRequest) {
 
     const data: GroqModelsResponse = await response.json()
     
-    // Transform Groq models to match our interface
-    const transformedModels = data.data
+    // Filter and include all necessary models (chat, vision, audio)
+    const allModels = data.data
       .filter((model) => {
-        // Only include text-based chat models
-        return model.id && !model.id.includes("deprecated")
+        // Include chat models, vision models, and audio models
+        return (
+          model.active &&
+          (
+            // Chat models (exclude deprecated)
+            (!model.id.includes("deprecated") && model.context_window > 1000) ||
+            // Vision models
+            model.id.includes("llama-4-scout") ||
+            model.id.includes("llama-4-maverick") ||
+            // Audio models
+            model.id.includes("whisper") ||
+            model.id.includes("tts")
+          )
+        )
       })
       .sort((a, b) => {
-        // Sort by model name for better UX
+        // Sort by context window (larger = better) and then by name
+        if (b.context_window !== a.context_window) {
+          return b.context_window - a.context_window
+        }
         return a.id.localeCompare(b.id)
       })
       .map((model) => {
@@ -61,7 +76,7 @@ export async function GET(req: NextRequest) {
           name: model.id.replace(/-/g, " ").replace(/_/g, " "),
           description: getModelDescription(model.id),
           context_window: model.context_window,
-          max_tokens: model.max_completion_tokens,
+          max_completion_tokens: model.max_completion_tokens || model.context_window,
           provider: model.owned_by || "groq",
           pricing: {
             prompt: getModelPricing(model.id, "prompt"),
@@ -81,7 +96,7 @@ export async function GET(req: NextRequest) {
         }
       })
 
-    return new Response(JSON.stringify(transformedModels), {
+    return new Response(JSON.stringify(allModels), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=3600", // Cache for 1 hour
@@ -149,14 +164,14 @@ function getModelPricing(modelId: string, type: "prompt" | "completion"): number
     return type === "prompt" ? 0.12 : 0.20 // $0.12/$0.20 per 1M tokens (vision model)
   } else if (modelId.includes("llama-4")) {
     return type === "prompt" ? 0.08 : 0.15 // $0.08/$0.15 per 1M tokens
-  } else if (modelId.includes("gemma")) {
+  } else if (modelId.includes("gemma")) {   
     return type === "prompt" ? 0.10 : 0.20 // $0.10/$0.20 per 1M tokens
   } else if (modelId.includes("gpt-oss")) {
     return type === "prompt" ? 0.12 : 0.25 // $0.12/$0.25 per 1M tokens
   } else if (modelId.includes("qwen")) {
-    return type === "prompt" ? 0.08 : 0.16 // $0.08/$0.16 per 1M tokens
+    return type === "prompt" ? 0.08 : 0.16
   } else if (modelId.includes("compound")) {
-    return type === "prompt" ? 0.06 : 0.12 // $0.06/$0.12 per 1M tokens
+    return type === "prompt" ? 0.06 : 0.12 
   }
   return type === "prompt" ? 0.10 : 0.20 // Default pricing
 }

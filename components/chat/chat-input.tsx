@@ -74,6 +74,16 @@ export const ChatInput = memo(function ChatInput({
     return contextWindow.toString()
   }, [])
 
+  const formatMaxTokens = useCallback((maxTokens: number) => {
+    if (maxTokens >= 1000000) {
+      return `${(maxTokens / 1000000).toFixed(1)}M`
+    }
+    if (maxTokens >= 1000) {
+      return `${(maxTokens / 1000).toFixed(0)}K`
+    }
+    return maxTokens.toString()
+  }, [])
+
   const getModelBadgeVariant = useCallback((contextWindow: number) => {
     if (contextWindow >= 100000) return "default"
     if (contextWindow >= 50000) return "secondary"
@@ -207,7 +217,10 @@ export const ChatInput = memo(function ChatInput({
                             {model.provider}
                           </span>
                           <span className="text-xs text-slate-500 bg-blue-100 hover:text-blue-700 px-2 py-1 rounded-lg">
-                            {formatContextWindow(model.context_window)}
+                            Max: {formatMaxTokens(model.max_completion_tokens)}
+                          </span>
+                          <span className="text-xs text-slate-500 bg-green-100 hover:text-green-700 px-2 py-1 rounded-lg">
+                            Context: {formatContextWindow(model.context_window)}
                           </span>
                           {/* Show vision capability for multimodal models */}
                           {model.capabilities.vision && (

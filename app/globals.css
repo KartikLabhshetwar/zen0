@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Math rendering styles */
+.katex-display {
+  margin: 1em 0 !important;
+  text-align: center;
+}
+
+.katex {
+  font-size: 1.1em;
+  line-height: 1.2;
+}
+
+.katex-display .katex {
+  font-size: 1.2em;
+}
+
+/* Inline math styling */
+.katex-inline {
+  padding: 0 0.2em;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

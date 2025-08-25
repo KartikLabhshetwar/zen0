@@ -3,7 +3,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Markdown } from "@/components/ui/markdown"
 import { Loader } from "@/components/ui/loader"
 import { ChatMessage } from "./chat-message"
-import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ui/reasoning"
 
 interface ChatMessagesProps {
   messages: Array<{
@@ -19,11 +18,9 @@ interface ChatMessagesProps {
   streamingMessage: string
   isStreaming: boolean
   isProcessing?: boolean
-  reasoningText?: string
-  showReasoning?: boolean
 }
 
-export function ChatMessages({ messages, streamingMessage, isStreaming, isProcessing = false, reasoningText = "", showReasoning = false }: ChatMessagesProps) {
+export function ChatMessages({ messages, streamingMessage, isStreaming, isProcessing = false }: ChatMessagesProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -62,26 +59,11 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
 
         {/* Show AI thinking process when available, otherwise show shimmer loading */}
         {isProcessing && (
-          showReasoning && reasoningText && reasoningText.includes('<think>') ? (
-            <div className="px-1 sm:px-0">
-              <Reasoning isStreaming={isProcessing} open={true}>
-                <ReasoningTrigger>AI is thinking...</ReasoningTrigger>
-                <ReasoningContent 
-                  className="ml-2 border-l-2 border-l-slate-200 px-2 pb-1 dark:border-l-slate-700"
-                  markdown={false}
-                >
-                  <div className="text-gray-700 dark:text-gray-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
-                    {reasoningText.match(/<think>([\s\S]*?)<\/think>/)?.[1]?.trim() || 'Thinking...'}
-                  </div>
-                </ReasoningContent>
-              </Reasoning>
-            </div>
-          ) : (
             <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base px-1 sm:px-0">
               <Loader variant="text-shimmer" size="sm" />
               <span>Thinking...</span>
             </div>
-          )
+          
         )}
 
         {/* Show streaming message when available */}
