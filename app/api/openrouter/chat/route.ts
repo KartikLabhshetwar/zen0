@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server"
 
-// Disable Edge functions - use Node.js runtime for better compatibility and memory
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
@@ -9,7 +8,6 @@ export async function POST(req: NextRequest) {
 
     // Clean messages to remove any unsupported properties for OpenRouter API
     const cleanMessages = messages.map((msg: any) => {
-      // Only keep the properties that OpenRouter API supports
       const { role, content } = msg;
       return { role, content };
     });
@@ -21,13 +19,13 @@ export async function POST(req: NextRequest) {
       "HTTP-Referer": "https://zen0.vercel.app", // Optional: for OpenRouter rankings
       "X-Title": "Zen0", // Optional: for OpenRouter rankings
     }
+    
     const body = {
       model,
       messages: cleanMessages,
       stream: true,
-      // Add performance optimizations
-      max_tokens: 4000, // Limit response length for faster streaming
-      temperature: 0.7, // Balanced creativity vs speed
+      max_tokens: 4000,
+      temperature: 0.7,
     }
 
     // Use AbortController for better timeout handling
@@ -72,7 +70,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Chat API error:", error)
+    console.error("OpenRouter chat API error:", error)
     
     // Handle abort errors gracefully
     if (error instanceof Error && error.name === 'AbortError') {

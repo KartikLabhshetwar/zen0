@@ -4,7 +4,7 @@ import { Paperclip, X, ArrowUp, ChevronUp } from "lucide-react"
 import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction } from "@/components/ui/prompt-input"
 import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useGroqModels } from "@/lib/hooks/use-groq-models"
+import { useOpenRouterModels } from "@/lib/hooks/use-openrouter-models"
 import { toast } from "sonner"
 
 interface ChatInputProps {
@@ -32,7 +32,7 @@ export const ChatInput = memo(function ChatInput({
   selectedModel,
   onModelChange
 }: ChatInputProps) {
-  const { models, loading } = useGroqModels({
+  const { models, loading } = useOpenRouterModels({
     apiKey,
     autoFetch: !!apiKey,
   })
@@ -170,11 +170,37 @@ export const ChatInput = memo(function ChatInput({
                         </span>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                            {model.owned_by}
+                            {model.provider}
                           </span>
                           <span className="text-xs text-slate-500 bg-blue-100 hover:text-blue-700 px-2 py-1 rounded-lg">
                             {formatContextWindow(model.context_window)}
                           </span>
+                          {/* Show key capabilities */}
+                          {model.capabilities.vision && (
+                            <span className="text-xs text-slate-500 bg-purple-100 px-2 py-1 rounded-lg">
+                              👁️ Vision
+                            </span>
+                          )}
+                          {model.capabilities.audio && (
+                            <span className="text-xs text-slate-500 bg-indigo-100 px-2 py-1 rounded-lg">
+                              🎤 Audio
+                            </span>
+                          )}
+                          {model.capabilities.web_search && (
+                            <span className="text-xs text-slate-500 bg-green-100 px-2 py-1 rounded-lg">
+                              🔍 Web
+                            </span>
+                          )}
+                          {model.capabilities.reasoning && (
+                            <span className="text-xs text-slate-500 bg-orange-100 px-2 py-1 rounded-lg">
+                              🧠 Reasoning
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Quick capability summary */}
+                        <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                          {Object.values(model.capabilities).filter(Boolean).length} features
                         </div>
                       </div>
                       {selectedModel === model.id && (

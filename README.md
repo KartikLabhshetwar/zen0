@@ -4,14 +4,14 @@
 
 # zen0 - AI Chat with Blazing Fast Responses
 
-A modern AI chatbot application that delivers blazing fast responses using Groq's lightning-fast inference technology and enhanced with Mem0 AI Memory for intelligent, persistent conversations. All data is stored locally in your browser's localStorage for complete privacy.
+A modern AI chatbot application that delivers blazing fast responses using OpenRouter's unified API for access to hundreds of AI models and enhanced with Mem0 AI Memory for intelligent, persistent conversations. All data is stored locally in your browser's localStorage for complete privacy.
 
 ## Features
 
-- **Blazing Fast Responses**: Powered by Groq's ultra-fast inference for near-instantaneous AI responses
+- **Blazing Fast Responses**: Powered by OpenRouter's unified API for access to hundreds of AI models
 - **Mem0 AI Memory**: Advanced AI-powered memory system that learns from conversations and provides intelligent context
 - **Local Storage**: All conversations, messages, and settings are stored locally in your browser
-- **Multiple Groq Models**: Access to all Llama, DeepSeek, and other models available through Groq
+- **Multiple AI Models**: Access to hundreds of models from OpenAI, Anthropic, Google, Meta, and more through OpenRouter
 - **Image Upload & OCR**: Upload images and extract text for context
 - **Image Generation**: Generate images using DALL-E with `/generate` command
 - **Intelligent Memory**: Mem0-powered memory system for conversation context and learning
@@ -34,12 +34,12 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 3. **Set up API keys**
    - Navigate to the chat page
    - Click "API Settings" to configure your API keys
-   - **Groq API Key**: Get your key from [Groq Console](https://console.groq.com/keys)
+   - **OpenRouter API Key**: Get your key from [OpenRouter Dashboard](https://openrouter.ai/keys)
    - **Mem0 API Key** (Optional): Get your key from [Mem0 Dashboard](https://app.mem0.ai/dashboard/api-keys) for advanced AI memory
 
 4. **Start chatting**
    - Create a new conversation
-   - Experience blazing fast responses with Groq-powered models
+   - Experience blazing fast responses with OpenRouter-powered models
    - Enjoy intelligent memory with Mem0 AI Memory (if configured)
    - Upload images for context
    - Use `/generate [prompt]` for image creation
@@ -57,8 +57,8 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 - **LocalStorageService**: Handles all data persistence
 - **Mem0Service**: Manages AI memory operations for personal context
 - **Chat Interface**: Main chat functionality with memory integration
-- **API Routes**: Simplified endpoints for Groq API communication
-- **BYOK Setup**: API key configuration for both Groq and Mem0
+- **API Routes**: Simplified endpoints for OpenRouter API communication
+- **BYOK Setup**: API key configuration for both OpenRouter and Mem0
 
 ## Data Management
 
@@ -74,19 +74,19 @@ A modern AI chatbot application that delivers blazing fast responses using Groq'
 - Option to clear all local data if needed
 - Use with caution as this action cannot be undone
 
-## Groq API
+## OpenRouter API
 
 ### Models
-- Access to all models available through Groq including:
-  - Llama 3.1 (8B, 70B)
-  - Llama 3 (8B, 70B)
-  - Mixtral 8x7B
-  - Gemma 2 9B
-  - And more (fetched dynamically)
+- Access to hundreds of models from top providers including:
+  - **OpenAI Models**: GPT-4, GPT-4o, GPT-3.5 Turbo
+  - **Anthropic Models**: Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus
+  - **Google Models**: Gemini Pro, Gemini Flash, PaLM 2
+  - **Meta Models**: Llama 3.1, Llama 3.1 8B, Llama 2 70B
+  - **Other Models**: DeepSeek, Mixtral, Gemma, and many more
 
 ### Key Format
-- Groq API keys start with `gsk_`
-- Get your key from [Groq Console](https://console.groq.com/keys)
+- OpenRouter API keys start with `sk-or-v1-`
+- Get your key from [OpenRouter Dashboard](https://openrouter.ai/keys)
 
 ## Mem0 AI Memory
 

@@ -109,7 +109,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             Experience the world's fastest LLMs powered by{" "}
-            <span className="font-medium text-black">Groq's inference technology</span> and enhanced with{" "}
+            <span className="font-medium text-black">OpenRouter's unified API</span> and enhanced with{" "}
             <span className="font-medium text-black">Mem0 AI Memory</span>
           </motion.p>
         </motion.div>

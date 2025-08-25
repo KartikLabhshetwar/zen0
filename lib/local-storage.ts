@@ -139,8 +139,8 @@ class LocalStorageService {
     
     return {
       api_keys: {},
-      default_provider: "groq",
-      default_model: "llama-3.1-8b-instant",
+      default_provider: "openrouter",
+      default_model: "openai/gpt-4o",
       memory_enabled: true,
     }
   }

@@ -1,33 +1,49 @@
 import { useState, useEffect, useCallback } from "react"
 
-export interface GroqModel {
+export interface OpenRouterModel {
   id: string
   name: string
+  description: string
   context_window: number
-  owned_by: string
   max_tokens: number
+  provider: string
+  pricing: {
+    prompt: number
+    completion: number
+  }
+  capabilities: {
+    text: boolean
+    image: boolean
+    audio: boolean
+    web_search: boolean
+    reasoning: boolean
+    function_calling: boolean
+    json_output: boolean
+    parallel_tool_calls: boolean
+    vision: boolean
+  }
 }
 
-interface UseGroqModelsOptions {
+interface UseOpenRouterModelsOptions {
   apiKey?: string
   autoFetch?: boolean
   onError?: (error: string) => void
 }
 
-interface UseGroqModelsReturn {
-  models: GroqModel[]
+interface UseOpenRouterModelsReturn {
+  models: OpenRouterModel[]
   loading: boolean
   error: string | null
   fetchModels: () => Promise<void>
   refreshModels: () => Promise<void>
 }
 
-export function useGroqModels({
+export function useOpenRouterModels({
   apiKey,
   autoFetch = true,
   onError,
-}: UseGroqModelsOptions = {}): UseGroqModelsReturn {
-  const [models, setModels] = useState<GroqModel[]>([])
+}: UseOpenRouterModelsOptions = {}): UseOpenRouterModelsReturn {
+  const [models, setModels] = useState<OpenRouterModel[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,7 +58,7 @@ export function useGroqModels({
     setError(null)
 
     try {
-      const response = await fetch("/api/groq/models", {
+      const response = await fetch("/api/openrouter/models", {
         headers: {
           Authorization: `Bearer ${apiKey}`,
         },

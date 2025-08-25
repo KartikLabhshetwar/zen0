@@ -151,22 +151,22 @@ export default function ChatPage() {
     }
     
     const settings = localStorageService.getSettings()
-    setApiKey(settings.api_keys.groq || "")
+    setApiKey(settings.api_keys.openrouter || "")
     
     // Check if API keys exist in localStorage
     const keys = localStorage.getItem("zen0-api-keys")
     if (keys) {
       const parsedKeys = JSON.parse(keys)
-      const groqKey = parsedKeys.find((key: any) => key.provider === "groq")
+      const openrouterKey = parsedKeys.find((key: any) => key.provider === "openrouter")
       const mem0Key = parsedKeys.find((key: any) => key.provider === "mem0")
       
-      if (groqKey && groqKey.key) {
-        setApiKey(groqKey.key)
+      if (openrouterKey && openrouterKey.key) {
+        setApiKey(openrouterKey.key)
         
         // Only set default model if we don't have a current conversation AND no model is currently selected
         if (!currentConversation && !selectedModel) {
           // Use the model from the API key if available, otherwise use the stored default
-          const modelToUse = groqKey.model || settings.default_model || "llama-3.1-8b-instant"
+          const modelToUse = openrouterKey.model || settings.default_model || "openai/gpt-4o"
           setSelectedModel(modelToUse)
         }
       }
@@ -179,8 +179,8 @@ export default function ChatPage() {
       return
     }
 
-    // Only show API setup if no Groq key exists
-    if (!settings.api_keys.groq) {
+    // Only show API setup if no OpenRouter key exists
+    if (!settings.api_keys.openrouter) {
       setShowApiSetup(true)
     }
     
@@ -238,11 +238,11 @@ export default function ChatPage() {
     }
 
     // Ensure we have a valid model selected
-    const modelToUse = selectedModel || "llama-3.1-8b-instant"
+    const modelToUse = selectedModel || "openai/gpt-4o"
     
     const newConversation = localStorageService.createConversation({
       title: "New Chat",
-      provider: "groq",
+      provider: "openrouter",
       model: modelToUse,
     })
 
@@ -533,7 +533,7 @@ export default function ChatPage() {
       setMessages([])
       setApiKey("")
       setMem0ApiKey("")
-      setSelectedModel("llama-3.1-8b-instant")
+      setSelectedModel("openai/gpt-4o")
       setFiles([])
       toast.success("All data cleared")
     }
@@ -554,7 +554,7 @@ export default function ChatPage() {
             const modelMap: Record<string, string> = {}
 
             parsedKeys.forEach((key: any) => {
-              if (key.provider === "groq") {
+              if (key.provider === "openrouter") {
                 keyMap[key.provider] = key.key
                 if (key.model) {
                   modelMap[key.provider] = key.model
@@ -564,11 +564,11 @@ export default function ChatPage() {
               }
             })
 
-            setApiKey(keyMap.groq || "")
+            setApiKey(keyMap.openrouter || "")
             setMem0ApiKey(keyMap.mem0 || "")
-            setSelectedModel(modelMap.groq || "llama-3.1-8b-instant")
+            setSelectedModel(modelMap.openrouter || "openai/gpt-4o")
 
-            if (keyMap.groq) {
+            if (keyMap.openrouter) {
               setShowApiSetup(false)
             }
           }

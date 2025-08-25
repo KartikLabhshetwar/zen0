@@ -3,8 +3,8 @@ import { StepCard } from "./step-card"
 const steps = [
   {
     number: 1,
-    title: "Get Your Groq API Key",
-    description: "Sign up at Groq and get your free API key from the console."
+    title: "Get Your OpenRouter API Key",
+description: "Sign up at OpenRouter and get your API key from the dashboard."
   },
   {
     number: 2,
@@ -14,7 +14,7 @@ const steps = [
   {
     number: 3,
     title: "Enjoy the Speed",
-    description: "Chat with any Groq model at unprecedented speeds, all stored securely in your browser."
+    description: "Chat with any OpenRouter model at unprecedented speeds, all stored securely in your browser."
   }
 ]
 
