@@ -59,7 +59,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
       <div
         className={`${
           isUser 
-            ? "max-w-[85%] sm:max-w-[80%] md:max-w-[75%] bg-primary text-primary-foreground shadow-sm" 
+            ? "max-w-[85%] sm:max-w-[80%] md:max-w-[75%] bg-gray-500 text-white shadow-sm dark:bg-primary dark:text-primary-foreground" 
             : "max-w-[95%] sm:max-w-[90%] md:max-w-[85%] text-foreground bg-background/80 backdrop-blur-sm"
         } rounded-2xl ${isUser ? "p-4 sm:p-4" : "p-4 sm:p-5"} overflow-hidden break-words`}
       >
@@ -101,7 +101,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
         {message.created_at && (
           <div className={cn(
             "text-xs opacity-60 mt-2",
-            isUser ? "text-right text-primary-foreground/70" : "text-left text-muted-foreground"
+            isUser ? "text-right text-white/70 dark:text-primary-foreground/70" : "text-left text-muted-foreground"
           )}>
             {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
