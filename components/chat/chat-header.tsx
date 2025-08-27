@@ -83,7 +83,7 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh, apiKey }: 
   }
 
   return (
-    <div className="flex h-14 items-center gap-2 border-b bg-background px-4">
+    <div className="flex h-14 items-center gap-2 border-b bg-background/95 backdrop-blur-sm px-4 shadow-sm">
       <SidebarTrigger />
 
       {apiKey ? (

@@ -5,6 +5,7 @@ import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction
 import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
 import { SpeechInput } from "@/components/ui/speech-input"
 import { toast } from "sonner"
+import { useMobileKeyboard } from "@/hooks/use-mobile-keyboard"
 
 interface ChatInputProps {
   input: string
@@ -29,6 +30,7 @@ export const ChatInput = memo(function ChatInput({
   apiKey,
   selectedModel
 }: ChatInputProps) {
+  const { isKeyboardOpen, inputBottom } = useMobileKeyboard()
   const handleFileChange = useCallback((newFiles: File[]) => {
     onFilesChange([...files, ...newFiles])
     if (newFiles.length > 0) {
@@ -53,7 +55,13 @@ export const ChatInput = memo(function ChatInput({
       onFilesAdded={handleFileChange}
       accept=".jpg,.jpeg,.png,.pdf,.docx,.txt,.md"
     >
-      <div className="p-3 sm:p-4 md:p-6">
+      <div 
+        className={`p-3 sm:p-4 md:p-6 chat-input-transition ${isKeyboardOpen ? 'keyboard-open' : ''}`}
+        style={{
+          paddingBottom: isKeyboardOpen ? `${Math.max(16, inputBottom)}px` : undefined,
+          transition: 'padding-bottom 0.3s ease-out'
+        }}
+      >
         <PromptInput
           value={input}
           onValueChange={onInputChange}

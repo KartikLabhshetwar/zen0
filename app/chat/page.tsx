@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Key } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useMobileKeyboard } from "@/hooks/use-mobile-keyboard"
 
 import { Mem0Service } from "@/lib/mem0-service"
 import { conversationService, type Conversation } from "@/lib/conversation-service"
@@ -53,6 +54,9 @@ export default function ChatPage() {
 
   // Flag to prevent multiple calls to loadLocalSettings
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  // Mobile keyboard handling
+  const { isKeyboardOpen, inputBottom } = useMobileKeyboard()
 
   // Helper function to check if a model supports vision
   const isVisionModel = useCallback((modelId: string) => {
@@ -655,18 +659,20 @@ export default function ChatPage() {
         onNewConversation={handleNewConversation}
       />
       
-      <main className="flex-1 flex flex-col min-w-0">
-        <ChatHeader
-          selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
-          onRefresh={() => {
-            // Refresh current conversation
-            if (currentConversationId) {
-              loadConversationMessages(currentConversationId)
-            }
-          }}
-          apiKey={apiKey}
-        />
+      <main className="flex-1 flex flex-col min-w-0 relative">
+        <div className="sticky top-0 z-20 bg-background chat-header-sticky">
+          <ChatHeader
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+            onRefresh={() => {
+              // Refresh current conversation
+              if (currentConversationId) {
+                loadConversationMessages(currentConversationId)
+              }
+            }}
+            apiKey={apiKey}
+          />
+        </div>
         
         <div className="flex-1 overflow-hidden flex flex-col chat-container">
           <AnimatePresence mode="wait">
@@ -726,7 +732,7 @@ export default function ChatPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-                  className="flex-1 overflow-auto mobile-scroll chat-scroll-container chat-messages-container"
+                  className="flex-1 overflow-auto mobile-scroll chat-scroll-container chat-messages-container pt-2"
                 >
                   <ChatMessages 
                     messages={messages}
@@ -740,7 +746,11 @@ export default function ChatPage() {
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-                  className="flex-shrink-0 border-t border-slate-100"
+                  className={`flex-shrink-0 border-t border-slate-100 chat-input-container ${isKeyboardOpen ? 'keyboard-open' : ''}`}
+                  style={{
+                    paddingBottom: isKeyboardOpen ? `${Math.max(16, inputBottom)}px` : undefined,
+                    transition: 'padding-bottom 0.3s ease-out'
+                  }}
                 >
 
                   <motion.div
