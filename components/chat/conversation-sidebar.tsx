@@ -265,41 +265,43 @@ export function ConversationSidebar({
               <SidebarMenu>
                 {filteredConversations.map((conversation, index) => (
                   <SidebarMenuItem key={conversation.id} className="mb-2">
-                    <SidebarMenuButton
-                      isActive={currentConversationId === conversation.id}
-                      onClick={() => onConversationSelect(conversation.id)}
-                      size="lg"
-                      className="group p-3 h-auto min-h-[2rem]"
-                    >
-                      <div className="flex-1 min-w-0 text-left space-y-2 overflow-hidden">
-                        <div className="font-semibold text-sm leading-normal text-gray-900 dark:text-gray-100 break-words">
-                          {formatTitle(conversation.title)}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-500 leading-normal">
-                          {(() => {
-                            try {
-                              const date = new Date(conversation.updatedAt);
-                              if (isNaN(date.getTime())) {
-                                return "Invalid date";
+                    <div className="flex items-center w-full group">
+                      <SidebarMenuButton
+                        isActive={currentConversationId === conversation.id}
+                        onClick={() => onConversationSelect(conversation.id)}
+                        size="lg"
+                        className="flex-1 group p-3 h-auto min-h-[2rem]"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex-1 min-w-0 text-left overflow-hidden">
+                            <div className="font-semibold text-sm leading-normal text-gray-900 dark:text-gray-100 break-words">
+                              {formatTitle(conversation.title)}
+                            </div>
+                          </div>
+                          
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteConversation(conversation.id, e);
+                            }}
+                            className={`transition-opacity p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer ${
+                              isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                            title="Delete conversation"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleDeleteConversation(conversation.id, e as any);
                               }
-                              return formatDistanceToNow(date, { addSuffix: true });
-                            } catch (error) {
-                              return "Invalid date";
-                            }
-                          })()}
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                          </div>
                         </div>
-                      </div>
-                    </SidebarMenuButton>
-                    
-                    <SidebarMenuAction
-                      onClick={(e) => handleDeleteConversation(conversation.id, e)}
-                      className={`transition-opacity ${
-                        isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}
-                      title="Delete conversation"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </SidebarMenuAction>
+                      </SidebarMenuButton>
+                    </div>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

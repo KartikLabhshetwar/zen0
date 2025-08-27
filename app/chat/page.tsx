@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { Key } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import { Mem0Service } from "@/lib/mem0-service"
 import { conversationService, type Conversation } from "@/lib/conversation-service"
@@ -11,9 +13,9 @@ import { toast } from "sonner"
 import {
   ChatMessages,
   ChatInput,
-  ApiSetupScreen,
   ConversationSidebar,
-  ChatHeader
+  ChatHeader,
+  BYOKSetupDialog
 } from "@/components/chat"
 
 
@@ -38,6 +40,7 @@ export default function ChatPage() {
   const [reasoningText, setReasoningText] = useState("")
   const [showReasoning, setShowReasoning] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
+  const [showBYOKSetup, setShowBYOKSetup] = useState(false)
 
   const [apiKey, setApiKey] = useState<string>("")
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
@@ -163,6 +166,8 @@ export default function ChatPage() {
       localStorageService.updateDefaultModel(selectedModel)
     }
   }, [selectedModel, settingsLoaded])
+
+
 
   const loadLocalSettings = () => {
     if (settingsLoaded) {
@@ -358,21 +363,21 @@ export default function ChatPage() {
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     
-    // Create conversation if none exists
-    let conversationId = currentConversationId
-    if (!conversationId) {
-      try {
-        const newConvo = await conversationService.createConversation()
-        setCurrentConversationId(newConvo.id)
-        setConversations(prev => [newConvo, ...prev])
-        conversationId = newConvo.id
-        toast.success("New conversation started")
-      } catch (error) {
-        console.error("Failed to create conversation:", error)
-        toast.error("Failed to create conversation")
-        return
-      }
-    }
+            // Create conversation if none exists
+        let conversationId = currentConversationId
+        if (!conversationId) {
+          try {
+            const newConvo = await conversationService.createConversation()
+            setCurrentConversationId(newConvo.id)
+            setConversations(prev => [newConvo, ...prev])
+            conversationId = newConvo.id
+            toast.success("New conversation started")
+          } catch (error) {
+            console.error("Failed to create conversation", error)
+            toast.error("Failed to create conversation")
+            return
+          }
+        }
     
     // Store message in conversation
     await conversationService.addMessage(conversationId, {
@@ -606,38 +611,30 @@ export default function ChatPage() {
 
   if (showApiSetup) {
     return (
-      <ApiSetupScreen
-        onBackToChat={() => setShowApiSetup(false)}
-        onContinueToChat={() => {
-          const keys = localStorage.getItem("zen0-api-keys")
-          if (keys) {
-            const parsedKeys = JSON.parse(keys)
-            const keyMap: Record<string, string> = {}
-            const modelMap: Record<string, string> = {}
-
-            parsedKeys.forEach((key: any) => {
-              if (key.provider === "groq") {
-                keyMap[key.provider] = key.key
-                if (key.model) {
-                  modelMap[key.provider] = key.model
-                }
-              } else if (key.provider === "mem0") {
-                keyMap[key.provider] = key.key
-              }
-            })
-
-            setApiKey(keyMap.groq || "")
-            setMem0ApiKey(keyMap.mem0 || "")
-            const settings = localStorageService.getSettings()
-            const modelToUse = settings.default_model || modelMap.groq
-            setSelectedModel(modelToUse)
-
-            if (keyMap.groq) {
-              setShowApiSetup(false)
-            }
-          }
-        }}
-      />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md mx-auto text-center space-y-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl">
+            <Key className="w-8 h-8 text-slate-600" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-2xl font-semibold text-slate-900">API Key Required</h1>
+            <p className="text-slate-600">
+              Please configure your API keys to start chatting.
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowBYOKSetup(true)}
+            className="bg-slate-700 hover:bg-slate-800 rounded-2xl"
+          >
+            Configure API Keys
+          </Button>
+        </div>
+        
+        <BYOKSetupDialog 
+          open={showBYOKSetup} 
+          onOpenChange={setShowBYOKSetup}
+        />
+      </div>
     )
   }
 
@@ -727,6 +724,7 @@ export default function ChatPage() {
                     streamingMessage={streamingMessage}
                     isStreaming={isStreaming}
                     isProcessing={isProcessing}
+                    selectedModel={selectedModel}
                   />
                 </motion.div>
                 <motion.div 

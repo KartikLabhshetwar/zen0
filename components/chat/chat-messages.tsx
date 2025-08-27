@@ -17,9 +17,10 @@ interface ChatMessagesProps {
   streamingMessage: string
   isStreaming: boolean
   isProcessing?: boolean
+  selectedModel?: string
 }
 
-export function ChatMessages({ messages, streamingMessage, isStreaming, isProcessing = false }: ChatMessagesProps) {
+export function ChatMessages({ messages, streamingMessage, isStreaming, isProcessing = false, selectedModel }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -59,7 +60,7 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6 w-full max-w-full sm:max-w-4xl mx-auto pb-4 sm:pb-6">
         {messages.map((message, index) => (
-          <ChatMessage key={index} message={message} index={index} />
+          <ChatMessage key={index} message={message} index={index} selectedModel={selectedModel} />
         ))}
 
         {/* Show AI thinking process when available, otherwise show shimmer loading */}

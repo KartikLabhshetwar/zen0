@@ -99,24 +99,6 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
             )}
           </div>
         )}
-        {message.created_at && (
-          <div className={cn(
-            "text-xs opacity-60 mt-2",
-            isUser ? "text-right text-white/70 dark:text-primary-foreground/70" : "text-left text-muted-foreground"
-          )}>
-            {(() => {
-              try {
-                const date = new Date(message.created_at);
-                if (isNaN(date.getTime())) {
-                  return "Invalid time";
-                }
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              } catch (error) {
-                return "Invalid time";
-              }
-            })()}
-          </div>
-        )}
       </div>
       
       {/* Copy Button Below Message */}
@@ -124,7 +106,7 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 px-1.5 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
+          className="h-4 px-1 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
           onClick={async () => {
             try {
               let textToCopy = "";
@@ -144,7 +126,7 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
             }
           }}
         >
-          <Copy className="h-2.5 w-2.5 mr-0.5" />
+          <Copy className="h-2 w-2 mr-0" />
         </Button>
         {isAssistant && selectedModel && (
           <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md font-mono">

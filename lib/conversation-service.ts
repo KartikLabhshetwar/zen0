@@ -30,20 +30,7 @@ class ConversationService {
       
       const conversations = JSON.parse(stored) as Conversation[]
       
-      return conversations.sort((a, b) => {
-        try {
-          const dateA = new Date(a.updatedAt);
-          const dateB = new Date(b.updatedAt);
-          
-          if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
-            return 0; // Keep original order if dates are invalid
-          }
-          
-          return dateB.getTime() - dateA.getTime();
-        } catch (error) {
-          return 0; // Keep original order if there's an error
-        }
-      })
+      return conversations
     } catch (error) {
       console.error("Failed to get conversations:", error)
       return []
