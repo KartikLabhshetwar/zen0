@@ -5,6 +5,8 @@ import { Plus, MessageSquare, Trash2, Search, Clock, Key, Database, ServerIcon }
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 import { MCPServerManager } from "@/components/mcp-server-manager"
+import Image from "next/image"
+import Link from "next/link"
 
 import {
   Sidebar,
@@ -246,6 +248,17 @@ export function ConversationSidebar({
     <Sidebar>
       <SidebarHeader>
         <div className="flex flex-col gap-2 p-2">
+          <Link href="/">
+          <div className="flex items-start justify-start">
+            <Image
+              src="/logo.png"
+              alt="Zen0 Logo"
+              width={120}
+              height={120}
+              className="rounded-lg"
+            />
+          </div>
+          </Link>
           <Button
             onClick={handleNewConversation}
             className="w-full justify-start gap-2"
@@ -262,7 +275,6 @@ export function ConversationSidebar({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-8 text-sm"
-              autoFocus
             />
           </div>
         </div>

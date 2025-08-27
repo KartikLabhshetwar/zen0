@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Zen0Icon } from "@/components/ui/zen0-icon"
+import Image from "next/image"
 import { motion } from "framer-motion"
 import { Zap, Sparkles, ArrowRight } from "lucide-react"
 
@@ -63,7 +63,13 @@ export function HeroSection() {
             }}
             className="relative"
           >
-            <Zen0Icon className="text-black drop-shadow-sm" size={100} />
+            <Image
+              src="/logo.png"
+              alt="Zen0 Logo"
+              width={100}
+              height={100}
+              className="rounded-lg"
+            />
             <motion.div
               className="absolute -top-2 -right-2"
               animate={{ 

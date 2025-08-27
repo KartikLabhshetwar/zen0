@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Zen0Icon } from "@/components/ui/zen0-icon"
 import { GitHubStars } from "@/components/ui/github-stars"
 
 export function Header() {
@@ -18,11 +18,16 @@ export function Header() {
     <header className="border-b border-gray-100 bg-white/70 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 sm:h-18">
-          <Link href="/" className="flex items-center gap-3 text-xl sm:text-2xl font-bold text-neutral-900 hover:text-black transition-all duration-300 group">
+          <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-neutral-900 hover:text-black transition-all duration-300 group">
             <div className="transform group-hover:rotate-12 transition-transform duration-300">
-              <Zen0Icon className="text-neutral-900" size={32} />
+              <Image
+                src="/logo.png"
+                alt="Zen0 Logo"
+                width={100}
+                height={100}
+                className="rounded-lg"
+              />
             </div>
-            <span className="font-space-grotesk">zen0</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">

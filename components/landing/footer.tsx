@@ -1,9 +1,19 @@
+import Image from "next/image"
+
 export function Footer() {
   return (
     <footer className="bg-white border-t border-gray-200 py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
         <div className="text-center sm:text-left">
-          <h3 className="text-2xl font-light text-black">zen0</h3>
+          <div className="flex items-center gap-3 justify-center sm:justify-start">
+            <Image
+              src="/logo.png"
+              alt="Zen0 Logo"
+              width={80}
+              height={80}
+              className="rounded-lg"
+            />
+          </div>
           <p className="text-gray-600 mt-2">AI conversations with blazing fast responses</p>
         </div>
         <div className="text-gray-500 text-sm text-center">

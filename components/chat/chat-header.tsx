@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bot, ChevronDown, RefreshCw, Settings } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -16,7 +16,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { useGroqModels, type GroqModel } from "@/lib/hooks/use-groq-models"
 
 interface ChatHeaderProps {
@@ -85,7 +84,6 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh, apiKey }: 
   return (
     <div className="flex h-14 items-center gap-2 border-b bg-background/95 backdrop-blur-sm px-4 shadow-sm">
       <SidebarTrigger />
-
       {apiKey ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
