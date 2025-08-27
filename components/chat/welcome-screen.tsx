@@ -7,7 +7,7 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onNewConversation }: WelcomeScreenProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 text-center min-h-full w-full">
+    <div className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 text-center w-full">
       <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-200/50">
         <MessageSquare className="w-8 h-8 text-slate-600" />
       </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
 import { Mem0Service } from "@/lib/mem0-service"
 import { conversationService, type Conversation } from "@/lib/conversation-service"
@@ -12,8 +13,7 @@ import {
   ResponseCopySection,
   ApiSetupScreen,
   ConversationSidebar,
-  ChatHeader,
-  WelcomeScreen
+  ChatHeader
 } from "@/components/chat"
 
 
@@ -619,39 +619,117 @@ export default function ChatPage() {
           }}
         />
         
-        <div className="flex-1 overflow-hidden min-h-0">
-          {!currentConversationId ? (
-            <WelcomeScreen onNewConversation={handleNewConversation} />
-          ) : (
-            <ChatMessages 
-              messages={messages}
-              streamingMessage={streamingMessage}
-              isStreaming={isStreaming}
-              isProcessing={isProcessing}
-            />
-          )}
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+          <AnimatePresence mode="wait">
+            {messages.length === 0 ? (
+              <motion.div 
+                key="new-conversation"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex-1 flex flex-col items-center pt-24"
+              >
+                <div className="text-center mb-8">
+                  <h2 className="text-xl font-semibold text-slate-900 mb-2">New Conversation</h2>
+                  <p className="text-sm text-slate-600">Start typing to begin your conversation</p>
+                </div>
+                <motion.div 
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+                  className="w-full max-w-3xl px-4"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
+                  >
+                    <ResponseCopySection 
+                      streamingMessage={streamingMessage}
+                      isStreaming={isStreaming}
+                    />
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut", delay: 0.3 }}
+                  >
+                    <ChatInput
+                      input={input}
+                      onInputChange={debouncedSetInput}
+                      onSubmit={sendMessage}
+                      isStreaming={isStreaming}
+                      files={files}
+                      onFilesChange={setFiles}
+                      onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+                      apiKey={apiKey}
+                      selectedModel={selectedModel}
+                      onModelChange={(model) => setSelectedModel(model)}
+                    />
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="active-conversation"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex-1 flex flex-col"
+              >
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+                  className="flex-1 overflow-hidden min-h-0"
+                >
+                  <ChatMessages 
+                    messages={messages}
+                    streamingMessage={streamingMessage}
+                    isStreaming={isStreaming}
+                    isProcessing={isProcessing}
+                  />
+                </motion.div>
+                <motion.div 
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+                  className="flex-shrink-0 border-t border-slate-100"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
+                  >
+                    <ResponseCopySection 
+                      streamingMessage={streamingMessage}
+                      isStreaming={isStreaming}
+                    />
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut", delay: 0.3 }}
+                  >
+                    <ChatInput
+                      input={input}
+                      onInputChange={debouncedSetInput}
+                      onSubmit={sendMessage}
+                      isStreaming={isStreaming}
+                      files={files}
+                      onFilesChange={setFiles}
+                      onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+                      apiKey={apiKey}
+                      selectedModel={selectedModel}
+                      onModelChange={(model) => setSelectedModel(model)}
+                    />
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        
-        {currentConversationId && (
-          <div className="flex-shrink-0 border-t border-slate-100">
-            <ResponseCopySection 
-              streamingMessage={streamingMessage}
-              isStreaming={isStreaming}
-            />
-            <ChatInput
-              input={input}
-              onInputChange={debouncedSetInput}
-              onSubmit={sendMessage}
-              isStreaming={isStreaming}
-              files={files}
-              onFilesChange={setFiles}
-              onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
-              apiKey={apiKey}
-              selectedModel={selectedModel}
-              onModelChange={(model) => setSelectedModel(model)}
-            />
-          </div>
-        )}
       </main>
 
 
