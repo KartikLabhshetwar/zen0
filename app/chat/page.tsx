@@ -15,11 +15,7 @@ import {
   ChatHeader
 } from "@/components/chat"
 
-import {
-  SidebarProvider,
-  SidebarInset,
-  SidebarRail
-} from "@/components/ui/sidebar"
+
 
 interface ChatMessage {
   role: "user" | "assistant" | "system"
@@ -558,53 +554,53 @@ export default function ChatPage() {
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex h-screen bg-background overflow-hidden">
-        <ConversationSidebar
-          currentConversationId={currentConversationId}
-          onConversationSelect={handleConversationSelect}
-          onNewConversation={handleNewConversation}
+    <div className="flex h-screen bg-background overflow-hidden">
+      <ConversationSidebar
+        currentConversationId={currentConversationId}
+        onConversationSelect={handleConversationSelect}
+        onNewConversation={handleNewConversation}
+      />
+      
+      <main className="flex-1 flex flex-col min-w-0">
+        <ChatHeader
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          onRefresh={() => {
+            // Refresh current conversation
+            if (currentConversationId) {
+              loadConversationMessages(currentConversationId)
+            }
+          }}
         />
         
-        <SidebarRail />
+        <div className="flex-1 overflow-hidden min-h-0">
+          <ChatMessages 
+            messages={messages}
+            streamingMessage={streamingMessage}
+            isStreaming={isStreaming}
+            isProcessing={isProcessing}
+          />
+        </div>
         
-        <SidebarInset>
-          <div className="flex flex-col h-full">
-            <ChatHeader
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-            />
-            
-            <div className="flex-1 overflow-hidden min-h-0">
-              <ChatMessages 
-                messages={messages}
-                streamingMessage={streamingMessage}
-                isStreaming={isStreaming}
-                isProcessing={isProcessing}
-              />
-            </div>
-            
-            <div className="flex-shrink-0 border-t border-slate-100">
-              <ResponseCopySection 
-                streamingMessage={streamingMessage}
-                isStreaming={isStreaming}
-              />
-              <ChatInput
-                input={input}
-                onInputChange={debouncedSetInput}
-                onSubmit={sendMessage}
-                isStreaming={isStreaming}
-                files={files}
-                onFilesChange={setFiles}
-                onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
-                apiKey={apiKey}
-                selectedModel={selectedModel}
-                onModelChange={(model) => setSelectedModel(model)}
-              />
-            </div>
-          </div>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+        <div className="flex-shrink-0 border-t border-slate-100">
+          <ResponseCopySection 
+            streamingMessage={streamingMessage}
+            isStreaming={isStreaming}
+          />
+          <ChatInput
+            input={input}
+            onInputChange={debouncedSetInput}
+            onSubmit={sendMessage}
+            isStreaming={isStreaming}
+            files={files}
+            onFilesChange={setFiles}
+            onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+            apiKey={apiKey}
+            selectedModel={selectedModel}
+            onModelChange={(model) => setSelectedModel(model)}
+          />
+        </div>
+      </main>
+    </div>
   )
 }

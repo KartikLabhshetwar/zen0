@@ -36,7 +36,7 @@ const AVAILABLE_MODELS = [
 ]
 
 export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHeaderProps) {
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, open } = useSidebar()
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const currentModel = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0]
@@ -67,19 +67,23 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHead
 
   return (
     <div className="flex h-14 items-center gap-2 border-b bg-background px-4">
-      {!isMobile && <SidebarTrigger />}
+      {/* Sidebar Trigger - Always visible */}
+      <SidebarTrigger />
       
+      {/* Logo and Brand */}
       <div className="flex items-center gap-2">
         <Bot className="h-5 w-5" />
         <span className="font-semibold">Zen0</span>
-        {state === "collapsed" && (
+        {!open && (
           <Badge variant="outline" className="text-xs">
             {currentModel.id.split('-')[0]}
           </Badge>
         )}
       </div>
 
+      {/* Right side controls */}
       <div className="ml-auto flex items-center gap-2">
+        {/* Model Selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
@@ -111,6 +115,7 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHead
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Refresh Button */}
         {onRefresh && (
           <Button
             variant="ghost"
@@ -118,12 +123,19 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHead
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="h-8 w-8"
+            aria-label="Refresh chat"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         )}
 
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        {/* Settings Button */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8"
+          aria-label="Settings"
+        >
           <Settings className="h-4 w-4" />
         </Button>
       </div>
