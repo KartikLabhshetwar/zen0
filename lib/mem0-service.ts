@@ -135,14 +135,11 @@ export class Mem0Service {
 
     // Only search if this query should use memories
     if (!this.shouldSearchMemories(query)) {
-      console.log(`⏭️ Skipping Mem0 search for query: "${query}" - not a personal/repeated question`);
       return [];
     }
 
     try {
       const searchUserId = userId || this.globalUserId;
-      
-      console.log(`🔍 Searching Mem0 for personal query: "${query}"`);
       
       const response = await fetch('/api/mem0', {
         method: 'POST',
@@ -170,7 +167,6 @@ export class Mem0Service {
 
       const results = await response.json();
       const memories = this.extractMemoryText(results);
-      console.log(`✅ Found ${memories.length} relevant memories`);
       return memories;
     } catch (error) {
       console.error("Memory search failed:", error);
@@ -234,7 +230,6 @@ export class Mem0Service {
         return false;
       }
 
-      console.log("All memories deleted for user:", searchUserId);
       return true;
     } catch (error) {
       console.error("Failed to delete memories:", error);

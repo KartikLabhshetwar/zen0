@@ -7,16 +7,21 @@ import { SpeechInput } from "@/components/ui/speech-input"
 import { toast } from "sonner"
 import { useMobileKeyboard } from "@/hooks/use-mobile-keyboard"
 
+interface FileWithPreview extends File {
+  preview?: string
+}
+
 interface ChatInputProps {
   input: string
   onInputChange: (value: string) => void
   onSubmit: () => void
   isStreaming: boolean
-  files: File[]
-  onFilesChange: (files: File[]) => void
+  files: FileWithPreview[]
+  onFilesChange: (files: FileWithPreview[]) => void
   onFileRemove: (index: number) => void
   apiKey?: string
   selectedModel?: string
+  isProcessing: boolean
 }
 
 export const ChatInput = memo(function ChatInput({
@@ -28,11 +33,34 @@ export const ChatInput = memo(function ChatInput({
   onFilesChange,
   onFileRemove,
   apiKey,
-  selectedModel
+  selectedModel,
+  isProcessing
 }: ChatInputProps) {
   const { isKeyboardOpen, inputBottom } = useMobileKeyboard()
+  
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      files.forEach(file => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview)
+        }
+      })
+    }
+  }, [files])
+  
   const handleFileChange = useCallback((newFiles: File[]) => {
-    onFilesChange([...files, ...newFiles])
+    // Create preview URLs for image files
+    const filesWithPreview = newFiles.map(file => {
+      if (file.type.startsWith('image/')) {
+        const fileWithPreview = file as FileWithPreview
+        fileWithPreview.preview = URL.createObjectURL(file)
+        return fileWithPreview
+      }
+      return file as FileWithPreview
+    })
+    
+    onFilesChange([...files, ...filesWithPreview])
     if (newFiles.length > 0) {
       toast.success(`${newFiles.length} file${newFiles.length > 1 ? 's' : ''} added`)
     }
@@ -40,6 +68,10 @@ export const ChatInput = memo(function ChatInput({
 
   const handleFileRemove = useCallback((index: number) => {
     const fileName = files[index]?.name || 'File'
+    // Clean up preview URL if it exists
+    if (files[index]?.preview) {
+      URL.revokeObjectURL(files[index].preview!)
+    }
     onFileRemove(index)
     toast.success(`${fileName} removed`)
   }, [onFileRemove, files])
@@ -76,6 +108,12 @@ export const ChatInput = memo(function ChatInput({
                   🎯 <strong>Vision Model Active:</strong> Images will be analyzed by the AI. Ask questions about what you see!
                 </div>
               )}
+              {isProcessing && (
+                <div className="text-xs text-slate-600 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-yellow-600"></div>
+                  Processing images...
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-2">
                 {files.map((file, index) => (
                   <div
@@ -87,13 +125,9 @@ export const ChatInput = memo(function ChatInput({
                       {file.type.startsWith('image/') ? (
                         <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           <img 
-                            src={URL.createObjectURL(file)} 
+                            src={file.preview || URL.createObjectURL(file)} 
                             alt={file.name}
                             className="w-full h-full object-cover"
-                            onLoad={(e) => {
-                              // Clean up the object URL after the image loads
-                              URL.revokeObjectURL((e.target as HTMLImageElement).src);
-                            }}
                           />
                         </div>
                       ) : (

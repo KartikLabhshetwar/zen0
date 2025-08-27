@@ -314,8 +314,7 @@ export default function ChatPage() {
   // Handle mobile sidebar close
   useEffect(() => {
     const handleMobileSidebarClose = () => {
-      // This will be handled by the sidebar component itself
-      console.log("Mobile sidebar close requested")
+
     }
 
     window.addEventListener('close-mobile-sidebar', handleMobileSidebarClose)
@@ -402,7 +401,7 @@ export default function ChatPage() {
     await conversationService.addMessage(conversationId, {
       conversationId: conversationId,
       role: "user",
-      content: typeof messageContent === 'string' ? messageContent : userInput
+      content: messageContent
     })
     
     // Clear files after sending (they're now part of the message content)
@@ -419,7 +418,7 @@ export default function ChatPage() {
         console.error("❌ Failed to retrieve memories:", error);
       }
     } else if (mem0Service) {
-      console.log(`⏭️ Skipping Mem0 search for general query: "${userInput}"`);
+      // Skip Mem0 search for general queries
     }
 
     // Create clean messages for API (only role and content)
@@ -428,27 +427,11 @@ export default function ChatPage() {
       content: msg.content
     }));
 
-    // Enhance messages with memories if available
+    // Enhance messages with memories if available (silently, without showing context to user)
     if (relevantMemories.length > 0) {
-      const firstUserMessage = cleanMessagesForAPI.find(msg => msg.role === "user");
-      if (firstUserMessage && firstUserMessage.content) {
-        const memoryContext = `\n\n[Previous Context: ${relevantMemories.join(" | ")}]`;
-        
-        // Handle both text and multimodal content when adding memory context
-        if (typeof firstUserMessage.content === 'string') {
-          firstUserMessage.content += memoryContext;
-        } else if (Array.isArray(firstUserMessage.content)) {
-          // For multimodal messages, add memory context to the text part
-          const textItem = firstUserMessage.content.find(item => item.type === "text");
-          if (textItem && textItem.text) {
-            textItem.text += memoryContext;
-          }
-        }
-      }
-      
       cleanMessagesForAPI.unshift({
         role: "system",
-        content: `You have access to previous context about this user. Use this information to provide personalized and contextual responses. The context is marked with [Previous Context: ...] in the user's message. IMPORTANT: Always respond with plain text or markdown. Never use HTML tags like <p>, <div>, etc. Use simple formatting like **bold**, *italic*, and line breaks for structure.`
+        content: `You have access to previous context about this user. Use this information to provide personalized and contextual responses. IMPORTANT: Always respond with plain text or markdown. Never use HTML tags like <p>, <div>, etc. Use simple formatting like **bold**, *italic*, and line breaks for structure.`
       });
     }
 
@@ -554,7 +537,6 @@ export default function ChatPage() {
 
       // Performance monitoring
       const responseTime = performance.now() - startTime
-      console.log(`[zen0] Response time: ${responseTime.toFixed(2)}ms`)
 
       // Memory operations in background - don't block the UI
       if (mem0Service) {
@@ -716,6 +698,7 @@ export default function ChatPage() {
                       onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
                       apiKey={apiKey}
                       selectedModel={selectedModel}
+                      isProcessing={isProcessing}
                     />
                   </motion.div>
                 </motion.div>
@@ -768,6 +751,7 @@ export default function ChatPage() {
                       onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
                       apiKey={apiKey}
                       selectedModel={selectedModel}
+                      isProcessing={isProcessing}
                     />
                   </motion.div>
                 </motion.div>

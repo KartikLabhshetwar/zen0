@@ -11,13 +11,19 @@ export interface ConversationMessage {
   id: string
   conversationId: string
   role: "user" | "assistant" | "system"
-  content: string
+  content: string | Array<{
+    type: "text" | "image_url"
+    text?: string
+    image_url?: { url: string }
+  }>
   createdAt: string
+  metadata?: Record<string, any>
 }
 
 class ConversationService {
   private readonly STORAGE_KEY = "zen0-conversations"
   private readonly MESSAGES_STORAGE_KEY = "zen0-conversation-messages"
+  private readonly IMAGES_STORAGE_KEY = "zen0-conversation-images"
 
   async getConversations(): Promise<Conversation[]> {
     try {
@@ -117,6 +123,8 @@ class ConversationService {
       const messagesKey = `${this.MESSAGES_STORAGE_KEY}_${id}`
       localStorage.removeItem(messagesKey)
       
+      await this.cleanupConversationImages(id)
+      
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('conversation-deleted'))
       }
@@ -135,7 +143,35 @@ class ConversationService {
       if (!stored) return []
       
       const messages = JSON.parse(stored) as ConversationMessage[]
-      return messages
+      
+      const messagesWithImages = await Promise.all(
+        messages.map(async (message) => {
+          if (Array.isArray(message.content)) {
+            const restoredContent = await Promise.all(
+              message.content.map(async (item) => {
+                if (item.type === "image_url" && item.image_url?.url) {
+                  if (item.image_url.url.startsWith('data:')) {
+                    return item
+                  } else {
+                    const restoredImage = await this.getStoredImage(conversationId, item.image_url.url)
+                    if (restoredImage) {
+                      return {
+                        ...item,
+                        image_url: { url: restoredImage }
+                      }
+                    }
+                  }
+                }
+                return item
+              })
+            )
+            return { ...message, content: restoredContent }
+          }
+          return message
+        })
+      )
+      
+      return messagesWithImages
     } catch (error) {
       console.error("Failed to get messages:", error)
       return []
@@ -152,6 +188,9 @@ class ConversationService {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         createdAt: new Date().toISOString()
       }
+      if (Array.isArray(message.content)) {
+        await this.storeMessageImages(conversationId, newMessage.id, message.content)
+      }
       
       messages.push(newMessage)
       
@@ -165,16 +204,16 @@ class ConversationService {
         const titleChanged = conversation.title === "New Chat" && message.role === "user"
         
         conversation.messageCount = messages.length
-        conversation.lastMessage = message.content.substring(0, 100)
+        conversation.lastMessage = this.extractLastMessageText(message.content)
         conversation.updatedAt = new Date().toISOString()
         
         if (titleChanged) {
-          conversation.title = message.content.substring(0, 50) + (message.content.length > 50 ? "..." : "")
+          conversation.title = this.extractLastMessageText(message.content).substring(0, 50) + 
+            (this.extractLastMessageText(message.content).length > 50 ? "..." : "")
         }
         
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(conversations))
         
-        // Dispatch event to notify components about conversation update
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('conversation-updated', { 
             detail: { conversationId, titleChanged } 
@@ -187,6 +226,64 @@ class ConversationService {
     }
   }
 
+  private extractLastMessageText(content: string | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>): string {
+    if (typeof content === 'string') {
+      return content
+    }
+    
+    const textItems = content.filter(item => item.type === "text" && item.text)
+    return textItems.map(item => item.text).join(" ") || "Image message"
+  }
+
+  private async storeMessageImages(conversationId: string, messageId: string, content: Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>): Promise<void> {
+    try {
+      const imageItems = content.filter(item => item.type === "image_url" && item.image_url?.url)
+      
+      for (const item of imageItems) {
+        if (item.image_url?.url && item.image_url.url.startsWith('data:')) {
+          const imageKey = `${this.IMAGES_STORAGE_KEY}_${conversationId}_${messageId}_${Date.now()}`
+          localStorage.setItem(imageKey, item.image_url.url)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to store message images:", error)
+    }
+  }
+
+  private async getStoredImage(conversationId: string, imageKey: string): Promise<string | null> {
+    try {
+      if (typeof window === 'undefined') return null
+      
+      if (imageKey.startsWith('data:')) {
+        return imageKey
+      }
+      
+      if (imageKey.startsWith(this.IMAGES_STORAGE_KEY)) {
+        return localStorage.getItem(imageKey)
+      }
+      
+      return null
+    } catch (error) {
+      console.error("Failed to get stored image:", error)
+      return null
+    }
+  }
+
+  private async cleanupConversationImages(conversationId: string): Promise<void> {
+    try {
+      if (typeof window === 'undefined') return
+      
+      const keys = Object.keys(localStorage)
+      const imageKeys = keys.filter(key => 
+        key.startsWith(`${this.IMAGES_STORAGE_KEY}_${conversationId}_`)
+      )
+      
+      imageKeys.forEach(key => localStorage.removeItem(key))
+    } catch (error) {
+      console.error("Failed to cleanup conversation images:", error)
+    }
+  }
+
   async clearConversations(): Promise<void> {
     try {
       if (typeof window === 'undefined') return
@@ -195,7 +292,7 @@ class ConversationService {
       
       const keys = Object.keys(localStorage)
       keys.forEach(key => {
-        if (key.startsWith(this.MESSAGES_STORAGE_KEY)) {
+        if (key.startsWith(this.MESSAGES_STORAGE_KEY) || key.startsWith(this.IMAGES_STORAGE_KEY)) {
           localStorage.removeItem(key)
         }
       })

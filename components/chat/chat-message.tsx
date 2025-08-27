@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button"
 import { Markdown } from "@/components/ui/markdown"
-import { Copy, Paperclip } from "lucide-react"
+import { Copy, Paperclip, Image as ImageIcon, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { cn, formatModelName } from "@/lib/utils"
+import { useState } from "react"
 
 interface ChatMessageProps {
   message: {
@@ -22,6 +23,7 @@ interface ChatMessageProps {
 export function ChatMessage({ message, index, selectedModel }: ChatMessageProps) {
   const isUser = message.role === "user"
   const isAssistant = message.role === "assistant"
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set())
 
   // Helper function to render user message content (text + images)
   const renderUserMessageContent = (content: string | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>) => {
@@ -39,13 +41,54 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
               </div>
             );
           } else if (item.type === "image_url" && item.image_url) {
+            const hasError = imageErrors.has(itemIndex)
+            
             return (
               <div key={itemIndex} className="flex flex-col gap-2">
-                <img 
-                  src={item.image_url.url} 
-                  alt="Uploaded image" 
-                  className="max-w-full max-h-64 rounded-lg object-contain border border-gray-200"
-                />
+                {hasError ? (
+                  <div className="flex items-center gap-2 p-4 border border-red-200 rounded-lg bg-red-50 dark:bg-red-950/20 dark:border-red-800">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <span className="text-sm text-red-600 dark:text-red-400">
+                      Image failed to load
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setImageErrors(prev => {
+                          const newSet = new Set(prev)
+                          newSet.delete(itemIndex)
+                          return newSet
+                        })
+                      }}
+                      className="ml-auto h-6 px-2 text-xs"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img 
+                      src={item.image_url.url} 
+                      alt="Uploaded image" 
+                      className="max-w-full max-h-64 rounded-lg object-contain border border-gray-200"
+                      onError={() => {
+                        setImageErrors(prev => new Set(prev).add(itemIndex))
+                      }}
+                      onLoad={() => {
+                        setImageErrors(prev => {
+                          const newSet = new Set(prev)
+                          newSet.delete(itemIndex)
+                          return newSet
+                        })
+                      }}
+                    />
+                    <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" />
+                      Image
+                    </div>
+                  </div>
+                )}
               </div>
             );
           }

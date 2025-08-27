@@ -528,3 +528,25 @@
   position: relative;
   z-index: 10;
 }
+
+/* Recording animation enhancements */
+@keyframes recording-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.recording-animation {
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+/* Enhanced mic button recording state */
+.mic-recording {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  animation: recording-pulse 2s ease-in-out infinite;
+}
