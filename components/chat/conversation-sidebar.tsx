@@ -245,13 +245,11 @@ export function ConversationSidebar({
           <div className="text-center text-sm text-muted-foreground py-8 px-4">
             {searchQuery ? (
               <>
-                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No conversations found</p>
                 <p className="text-xs">Try adjusting your search terms</p>
               </>
             ) : (
               <>
-                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No conversations yet</p>
                 <p className="text-xs">Start a new chat to begin</p>
               </>

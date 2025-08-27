@@ -15,7 +15,7 @@ export function WelcomeScreen({ onNewConversation }: WelcomeScreenProps) {
       <p className="text-sm sm:text-base text-slate-600 mb-6 max-w-xs sm:max-w-sm md:max-w-md px-4 leading-relaxed">
         Start a new conversation to begin chatting with AI models. Your conversations will be saved locally for privacy.
       </p>
-      <Button onClick={onNewConversation} className="h-10 px-6 bg-slate-700 hover:bg-slate-800 text-base font-medium rounded-2xl transition-all duration-200 hover:scale-105 shadow-sm">
+      <Button onClick={onNewConversation} className="h-10 px-6 bg-slate-700 hover:bg-slate-800 text-base font-medium rounded-2xl shadow-sm">
         Start New Chat
       </Button>
     </div>
