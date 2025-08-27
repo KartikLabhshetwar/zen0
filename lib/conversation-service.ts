@@ -53,9 +53,12 @@ class ConversationService {
       if (typeof window === 'undefined') return []
       
       const stored = localStorage.getItem(this.STORAGE_KEY)
-      if (!stored) return []
+      if (!stored) {
+        return []
+      }
       
       const conversations = JSON.parse(stored) as Conversation[]
+      console.log(`[zen0] Loaded ${conversations.length} conversations from localStorage`)
       
       // Validate and fix any invalid dates
       const validatedConversations = conversations.map(conv => ({
@@ -102,20 +105,15 @@ class ConversationService {
     }
   }
 
-  // Get or create a default conversation (only if none exist)
-  async getOrCreateDefaultConversation(): Promise<Conversation | null> {
+  // Get the most recent conversation (only if one exists)
+  async getMostRecentConversation(): Promise<Conversation | null> {
     try {
       const conversations = await this.getConversations()
       
-      // If no conversations exist, create a default one
-      if (conversations.length === 0) {
-        return await this.createConversation("Welcome to Zen0")
-      }
-      
-      // Return the most recent conversation
-      return conversations[0]
+      // Only return the most recent conversation if one exists
+      return conversations.length > 0 ? conversations[0] : null
     } catch (error) {
-      console.error("Failed to get or create default conversation:", error)
+      console.error("Failed to get most recent conversation:", error)
       return null
     }
   }

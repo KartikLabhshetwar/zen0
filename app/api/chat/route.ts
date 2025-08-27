@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       stream: true,
       max_tokens: 4000,
       temperature: 0.7,  
-      reasoning_format: "parsed",
+      // reasoning_format: "parsed",
     }
 
     const controller = new AbortController()

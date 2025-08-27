@@ -67,23 +67,9 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHead
 
   return (
     <div className="flex h-14 items-center gap-2 border-b bg-background px-4">
-      {/* Sidebar Trigger - Always visible */}
       <SidebarTrigger />
-      
-      {/* Logo and Brand */}
-      <div className="flex items-center gap-2">
-        <Bot className="h-5 w-5" />
-        <span className="font-semibold">Zen0</span>
-        {!open && (
-          <Badge variant="outline" className="text-xs">
-            {currentModel.id.split('-')[0]}
-          </Badge>
-        )}
-      </div>
 
-      {/* Right side controls */}
       <div className="ml-auto flex items-center gap-2">
-        {/* Model Selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">

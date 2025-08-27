@@ -98,13 +98,13 @@ export default function ChatPage() {
         // Clean up any corrupted data first
         await conversationService.cleanupCorruptedData()
         
-        // Only set a conversation if none is currently selected
+        // Only set a conversation if none is currently selected and one exists
         if (!currentConversationId) {
-          const defaultConvo = await conversationService.getOrCreateDefaultConversation()
-          if (defaultConvo) {
-            setCurrentConversationId(defaultConvo.id)
-            // Load messages for the default conversation
-            await loadConversationMessages(defaultConvo.id)
+          const mostRecentConvo = await conversationService.getMostRecentConversation()
+          if (mostRecentConvo) {
+            setCurrentConversationId(mostRecentConvo.id)
+            // Load messages for the most recent conversation
+            await loadConversationMessages(mostRecentConvo.id)
           }
         }
       } catch (error) {
@@ -226,6 +226,10 @@ export default function ChatPage() {
       setMessages([])
       setInput("")
       setFiles([])
+      
+      // Trigger a custom event to refresh the sidebar
+      window.dispatchEvent(new CustomEvent('conversation-created'))
+      
       toast.success("New conversation started")
     } catch (error) {
       console.error("Failed to create new conversation:", error)
@@ -302,8 +306,22 @@ export default function ChatPage() {
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     
-    // Store message in conversation
-    if (currentConversationId) {
+    // Create conversation if none exists, or store message in existing conversation
+    if (!currentConversationId) {
+      const newConvo = await conversationService.createConversation()
+      setCurrentConversationId(newConvo.id)
+      
+      // Store the user message in the new conversation
+      await conversationService.addMessage(newConvo.id, {
+        conversationId: newConvo.id,
+        role: "user",
+        content: typeof messageContent === 'string' ? messageContent : userInput
+      })
+      
+      // Trigger a custom event to refresh the sidebar
+      window.dispatchEvent(new CustomEvent('conversation-created'))
+    } else {
+      // Store message in existing conversation
       await conversationService.addMessage(currentConversationId, {
         conversationId: currentConversationId,
         role: "user",
@@ -554,7 +572,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen w-screen bg-background overflow-hidden">
       <ConversationSidebar
         currentConversationId={currentConversationId}
         onConversationSelect={handleConversationSelect}

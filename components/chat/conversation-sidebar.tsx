@@ -116,6 +116,26 @@ export function ConversationSidebar({
 
   useEffect(() => {
     loadConversations()
+    
+    // Listen for storage changes to sync conversations across tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "zen0-conversations") {
+        loadConversations()
+      }
+    }
+    
+    // Listen for custom events when conversations are created
+    const handleConversationCreated = () => {
+      loadConversations()
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('conversation-created', handleConversationCreated)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('conversation-created', handleConversationCreated)
+    }
   }, [loadConversations])
 
   return (
