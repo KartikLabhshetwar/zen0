@@ -492,7 +492,7 @@
 /* Ensure input stays visible on mobile */
 @media (max-width: 768px) {
   .chat-messages-container {
-    padding-bottom: 80px;
+    padding-bottom: 10px;
   }
   
   /* Mobile header fixes */
@@ -584,8 +584,6 @@
     min-height: 56px;
     display: flex;
     align-items: center;
-    /* Debug: add a visible border to ensure positioning */
-    border: 2px solid red;
   }
   
   /* Ensure header is always visible on mobile */

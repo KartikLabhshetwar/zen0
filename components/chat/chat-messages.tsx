@@ -58,7 +58,7 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
       ref={containerRef}
       className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 mobile-scroll chat-scroll-container h-full"
     >
-      <div className="space-y-3 sm:space-y-4 md:space-y-6 w-full max-w-full sm:max-w-4xl mx-auto pb-4 sm:pb-6">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6 w-full max-w-full sm:max-w-4xl mx-auto pb-2">
         {messages.map((message, index) => (
           <ChatMessage key={index} message={message} index={index} selectedModel={selectedModel} />
         ))}
