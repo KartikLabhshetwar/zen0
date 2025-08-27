@@ -47,6 +47,7 @@ export default function ChatPage() {
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [currentConversationId, setCurrentConversationId] = useState<string>("")
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [lastActiveConversationId, setLastActiveConversationId] = useState<string>("")
 
   const [files, setFiles] = useState<File[]>([])
 
@@ -109,13 +110,21 @@ export default function ChatPage() {
           const newConvo = await conversationService.createConversation()
           setConversations([newConvo])
           setCurrentConversationId(newConvo.id)
+          setLastActiveConversationId(newConvo.id)
           setMessages([])
-        } else if (!currentConversationId) {
-          // Set the most recent conversation if none is currently selected
-          const mostRecentConvo = convos[0]
-          setCurrentConversationId(mostRecentConvo.id)
-          // Load messages for the most recent conversation
-          await loadConversationMessages(mostRecentConvo.id)
+        } else {
+          const lastActiveId = localStorage.getItem("zen0-last-active-conversation")
+          
+          if (lastActiveId && convos.find(c => c.id === lastActiveId)) {
+            setCurrentConversationId(lastActiveId)
+            setLastActiveConversationId(lastActiveId)
+            await loadConversationMessages(lastActiveId)
+          } else if (!currentConversationId) {
+            const mostRecentConvo = convos[0]
+            setCurrentConversationId(mostRecentConvo.id)
+            setLastActiveConversationId(mostRecentConvo.id)
+            await loadConversationMessages(mostRecentConvo.id)
+          }
         }
       } catch (error) {
         console.error("Failed to initialize chat:", error)
@@ -235,6 +244,8 @@ export default function ChatPage() {
   // Handle conversation selection
   const handleConversationSelect = useCallback(async (conversationId: string) => {
     setCurrentConversationId(conversationId)
+    setLastActiveConversationId(conversationId)
+    localStorage.setItem("zen0-last-active-conversation", conversationId)
     await loadConversationMessages(conversationId)
   }, [loadConversationMessages])
 
@@ -280,6 +291,8 @@ export default function ChatPage() {
     try {
       const newConvo = await conversationService.createConversation()
       setCurrentConversationId(newConvo.id)
+      setLastActiveConversationId(newConvo.id)
+      localStorage.setItem("zen0-last-active-conversation", newConvo.id)
       setMessages([])
       setInput("")
       setFiles([])
@@ -369,6 +382,8 @@ export default function ChatPage() {
           try {
             const newConvo = await conversationService.createConversation()
             setCurrentConversationId(newConvo.id)
+            setLastActiveConversationId(newConvo.id)
+            localStorage.setItem("zen0-last-active-conversation", newConvo.id)
             setConversations(prev => [newConvo, ...prev])
             conversationId = newConvo.id
             toast.success("New conversation started")

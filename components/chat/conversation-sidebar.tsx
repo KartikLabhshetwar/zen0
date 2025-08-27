@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, MessageSquare, Trash2, Search, Clock, Key, Database } from "lucide-react"
+import { Plus, MessageSquare, Trash2, Search, Clock, Key, Database, ServerIcon } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
+import { MCPServerManager } from "@/components/mcp-server-manager"
 
 import {
   Sidebar,
@@ -46,6 +47,9 @@ export function ConversationSidebar({
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([])
   const [showDataManager, setShowDataManager] = useState(false)
   const [showBYOKSetup, setShowBYOKSetup] = useState(false)
+  const [showMCPServerManager, setShowMCPServerManager] = useState(false)
+  const [mcpServers, setMcpServers] = useState<any[]>([])
+  const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([])
   const isMobile = useIsMobile()
 
   const loadConversations = useCallback(async () => {
@@ -59,6 +63,24 @@ export function ConversationSidebar({
       toast.error("Failed to load conversations")
     } finally {
       setIsLoading(false)
+    }
+  }, [])
+
+  const loadMCPServers = useCallback(() => {
+    try {
+      const stored = localStorage.getItem("zen0-mcp-servers")
+      if (stored) {
+        const servers = JSON.parse(stored)
+        setMcpServers(servers)
+      }
+      
+      const selected = localStorage.getItem("zen0-mcp-selected-servers")
+      if (selected) {
+        const selectedIds = JSON.parse(selected)
+        setSelectedMcpServers(selectedIds)
+      }
+    } catch (error) {
+      console.error("Failed to load MCP servers:", error)
     }
   }, [])
 
@@ -168,6 +190,16 @@ export function ConversationSidebar({
     }
   }, [])
 
+  const handleMCPServersChange = useCallback((servers: any[]) => {
+    setMcpServers(servers)
+    localStorage.setItem("zen0-mcp-servers", JSON.stringify(servers))
+  }, [])
+
+  const handleSelectedMCPServersChange = useCallback((selectedIds: string[]) => {
+    setSelectedMcpServers(selectedIds)
+    localStorage.setItem("zen0-mcp-selected-servers", JSON.stringify(selectedIds))
+  }, [])
+
   const formatTitle = (title: string) => {
     if (!title || title.trim() === "") return "Untitled Chat"
     return title.length > 30 ? title.substring(0, 30) + "..." : title
@@ -180,10 +212,14 @@ export function ConversationSidebar({
 
   useEffect(() => {
     loadConversations()
+    loadMCPServers()
     
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "zen0-conversations") {
         loadConversations()
+      }
+      if (e.key === "zen0-mcp-servers" || e.key === "zen0-mcp-selected-servers") {
+        loadMCPServers()
       }
     }
     
@@ -204,12 +240,12 @@ export function ConversationSidebar({
       window.removeEventListener('conversation-created', handleConversationCreated)
       window.removeEventListener('conversation-updated', handleConversationUpdated)
     }
-  }, [loadConversations])
+  }, [loadConversations, loadMCPServers])
 
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex flex-col gap-3 p-2">
+        <div className="flex flex-col gap-2 p-2">
           <Button
             onClick={handleNewConversation}
             className="w-full justify-start gap-2"
@@ -219,7 +255,7 @@ export function ConversationSidebar({
             New Chat
           </Button>
           
-          <div className="relative">
+          <div className="relative mt-1">
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search conversations..."
@@ -233,16 +269,16 @@ export function ConversationSidebar({
       
       <SidebarContent>
         {isLoading ? (
-          <div className="space-y-4 p-4 text-center">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="space-y-3">
+          <div className="space-y-3 p-3 text-center">
+                          {[...Array(3)].map((_, i) => (
+                <div key={i} className="space-y-2">
                 <div className="h-4 bg-muted animate-pulse rounded w-3/4 mx-auto" />
                 <div className="h-3 bg-muted animate-pulse rounded w-1/2 mx-auto" />
               </div>
             ))}
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground py-8 px-4">
+          <div className="text-center text-sm text-muted-foreground py-6 px-4">
             {searchQuery ? (
               <>
                 <p>No conversations found</p>
@@ -256,7 +292,7 @@ export function ConversationSidebar({
             )}
           </div>
         ) : (
-          <SidebarGroup className="mb-4">
+          <SidebarGroup className="mb-2">
             <SidebarGroupLabel className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Conversations
@@ -264,13 +300,13 @@ export function ConversationSidebar({
             <SidebarGroupContent>
               <SidebarMenu>
                 {filteredConversations.map((conversation, index) => (
-                  <SidebarMenuItem key={conversation.id} className="mb-2">
+                  <SidebarMenuItem key={conversation.id} className="mb-1">
                     <div className="flex items-center w-full group">
                       <SidebarMenuButton
                         isActive={currentConversationId === conversation.id}
                         onClick={() => onConversationSelect(conversation.id)}
                         size="lg"
-                        className="flex-1 group p-3 h-auto min-h-[2rem]"
+                        className="flex-1 group p-2 h-auto min-h-[1.5rem]"
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex-1 min-w-0 text-left overflow-hidden">
@@ -311,7 +347,7 @@ export function ConversationSidebar({
 
         {/* Search Results Badge */}
         {searchQuery && (
-          <div className="px-4 py-2">
+          <div className="px-4 py-1">
             <Badge variant="secondary" className="w-full justify-center">
               {filteredConversations.length} result{filteredConversations.length !== 1 ? 's' : ''}
             </Badge>
@@ -321,7 +357,7 @@ export function ConversationSidebar({
       
       <SidebarFooter>
         <SidebarSeparator />
-        <div className="p-2 space-y-2">
+        <div className="p-2 space-y-1">
           <Button
             variant="ghost"
             size="sm"
@@ -330,6 +366,20 @@ export function ConversationSidebar({
           >
             <Key className="h-4 w-4" />
             API Keys
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowMCPServerManager(true)}
+          >
+            <ServerIcon className="h-4 w-4" />
+            MCP Servers
+            {selectedMcpServers.length > 0 && (
+              <span className="ml-auto text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                {selectedMcpServers.length}
+              </span>
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -349,6 +399,15 @@ export function ConversationSidebar({
         onExport={handleExportData}
         onImport={handleImportData}
         onClearAll={handleClearAllData}
+      />
+
+      <MCPServerManager
+        open={showMCPServerManager}
+        onOpenChange={setShowMCPServerManager}
+        servers={mcpServers}
+        onServersChange={handleMCPServersChange}
+        selectedServers={selectedMcpServers}
+        onSelectedServersChange={handleSelectedMCPServersChange}
       />
 
       <BYOKSetupDialog
