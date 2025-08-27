@@ -1,5 +1,4 @@
 import { useRef, useEffect } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Markdown } from "@/components/ui/markdown"
 import { Loader } from "@/components/ui/loader"
 import { ChatMessage } from "./chat-message"
@@ -21,8 +20,8 @@ interface ChatMessagesProps {
 }
 
 export function ChatMessages({ messages, streamingMessage, isStreaming, isProcessing = false }: ChatMessagesProps) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll when not streaming to prevent jittering
   useEffect(() => {
@@ -33,26 +32,32 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
 
   // Stable scroll to bottom during streaming
   const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-      if (scrollElement) {
-        scrollElement.scrollTop = scrollElement.scrollHeight
-      }
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: "smooth"
+      })
     }
   }
 
   // Update scroll position when streaming message changes
   useEffect(() => {
     if (isStreaming && streamingMessage) {
-      requestAnimationFrame(() => {
+      // Use setTimeout instead of requestAnimationFrame for more consistent behavior
+      const timeoutId = setTimeout(() => {
         scrollToBottom()
-      })
+      }, 50)
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [streamingMessage, isStreaming])
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 h-full p-2 sm:p-4 md:p-6 mobile-scroll">
-      <div className="space-y-3 sm:space-y-4 md:space-y-6 w-full max-w-full sm:max-w-4xl mx-auto pb-4 sm:pb-6 overflow-hidden">
+    <div 
+      ref={containerRef}
+      className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 mobile-scroll chat-scroll-container h-full"
+    >
+      <div className="space-y-3 sm:space-y-4 md:space-y-6 w-full max-w-full sm:max-w-4xl mx-auto pb-4 sm:pb-6">
         {messages.map((message, index) => (
           <ChatMessage key={index} message={message} index={index} />
         ))}
@@ -68,21 +73,21 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
 
         {/* Show streaming message when available */}
         {streamingMessage && (
-          <div className="w-full max-w-full rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 text-gray-900 overflow-hidden break-words">
+          <div className="w-full max-w-full rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 text-gray-900 break-words">
             {(() => {
               // Check if the content contains HTML tags
               if (streamingMessage.includes('<') && streamingMessage.includes('>')) {
                 // If it's HTML, render it safely with custom CSS
                 return (
                   <div 
-                    className="prose prose-sm sm:prose-base w-full max-w-full text-gray-800 leading-relaxed chat-html-content overflow-hidden break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words"
+                    className="prose prose-sm sm:prose-base w-full max-w-full text-gray-800 leading-relaxed chat-html-content break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words"
                     dangerouslySetInnerHTML={{ __html: streamingMessage }}
                   />
                 );
               } else {
                 // If it's regular text/markdown, use the Markdown component
                 return (
-                  <Markdown className="w-full max-w-full prose-sm sm:prose-base overflow-hidden break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
+                  <Markdown className="w-full max-w-full prose-sm sm:prose-base break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
                     {streamingMessage}
                   </Markdown>
                 );
@@ -92,6 +97,6 @@ export function ChatMessages({ messages, streamingMessage, isStreaming, isProces
         )}
         <div ref={messagesEndRef} />
       </div>
-    </ScrollArea>
+    </div>
   )
 }

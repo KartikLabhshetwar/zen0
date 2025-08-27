@@ -46,6 +46,8 @@
   .mobile-scroll {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    /* Add momentum scrolling for iOS */
+    -webkit-overflow-scrolling: touch;
   }
   
   /* Mobile-specific touch improvements */
@@ -94,6 +96,45 @@
   .mobile-focus:focus {
     outline: 2px solid rgb(59 130 246);
     outline-offset: 2px;
+  }
+  
+  /* Enhanced scroll area for chat */
+  .chat-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  
+  .chat-scroll-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .chat-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .chat-scroll-container::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  
+  .chat-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+  
+  /* Fix for chat container scrolling */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  .chat-messages-container {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

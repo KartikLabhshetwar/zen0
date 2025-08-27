@@ -651,7 +651,7 @@ export default function ChatPage() {
           }}
         />
         
-        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+        <div className="flex-1 overflow-hidden flex flex-col chat-container">
           <AnimatePresence mode="wait">
             {messages.length === 0 ? (
               <motion.div 
@@ -708,13 +708,13 @@ export default function ChatPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="flex-1 flex flex-col"
+                className="flex-1 flex flex-col chat-container"
               >
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-                  className="flex-1 overflow-hidden min-h-0"
+                  className="flex-1 overflow-auto mobile-scroll chat-scroll-container chat-messages-container"
                 >
                   <ChatMessages 
                     messages={messages}

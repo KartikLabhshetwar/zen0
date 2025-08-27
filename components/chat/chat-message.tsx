@@ -60,7 +60,7 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
         className={`${
           isUser 
             ? "max-w-[85%] sm:max-w-[80%] md:max-w-[75%] bg-gray-500 text-white shadow-sm dark:bg-primary dark:text-primary-foreground" 
-            : "max-w-[95%] sm:max-w-[90%] md:max-w-[85%] text-foreground bg-background/80 backdrop-blur-sm"
+            : "max-w-[75%] sm:max-w-[60%] md:max-w-[55%] text-foreground bg-background/80 backdrop-blur-sm"
         } rounded-2xl ${isUser ? "p-4 sm:p-4" : "p-4 sm:p-5"} overflow-hidden break-words`}
       >
         {isAssistant ? (
