@@ -620,7 +620,7 @@ export default function ChatPage() {
         />
         
         <div className="flex-1 overflow-hidden min-h-0">
-          {conversations.length === 0 ? (
+          {!currentConversationId ? (
             <WelcomeScreen onNewConversation={handleNewConversation} />
           ) : (
             <ChatMessages 
@@ -632,7 +632,7 @@ export default function ChatPage() {
           )}
         </div>
         
-        {conversations.length > 0 && (
+        {currentConversationId && (
           <div className="flex-shrink-0 border-t border-slate-100">
             <ResponseCopySection 
               streamingMessage={streamingMessage}
