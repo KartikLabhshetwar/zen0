@@ -276,7 +276,17 @@ export function ConversationSidebar({
                           {formatTitle(conversation.title)}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-500 leading-normal">
-                          {formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true })}
+                          {(() => {
+                            try {
+                              const date = new Date(conversation.updatedAt);
+                              if (isNaN(date.getTime())) {
+                                return "Invalid date";
+                              }
+                              return formatDistanceToNow(date, { addSuffix: true });
+                            } catch (error) {
+                              return "Invalid date";
+                            }
+                          })()}
                         </div>
                       </div>
                     </SidebarMenuButton>

@@ -17,29 +17,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { useGroqModels, type GroqModel } from "@/lib/hooks/use-groq-models"
 
 interface ChatHeaderProps {
   selectedModel: string
   onModelChange: (model: string) => void
   onRefresh?: () => void
+  apiKey?: string
 }
 
-const AVAILABLE_MODELS = [
-  { id: "llama3-8b-8192", name: "Llama 3.1 8B", description: "Fast, efficient 8B parameter model" },
-  { id: "llama3-70b-8192", name: "Llama 3.1 70B", description: "High-quality 70B parameter model" },
-  { id: "llama3-8b-instruct", name: "Llama 3.1 8B Instruct", description: "Instruction-tuned 8B model" },
-  { id: "llama3-70b-instruct", name: "Llama 3.1 70B Instruct", description: "Instruction-tuned 70B model" },
-  { id: "llama-4-scout-1m", name: "Llama 4 Scout 1M", description: "Vision-capable model with 1M context" },
-  { id: "llama-4-maverick-1m", name: "Llama 4 Maverick 1M", description: "Advanced vision model with 1M context" },
-  { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B", description: "High-performance mixture of experts" },
-  { id: "gemma2-9b-it", name: "Gemma 2 9B IT", description: "Google's efficient 9B instruction model" },
-]
-
-export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHeaderProps) {
+export function ChatHeader({ selectedModel, onModelChange, onRefresh, apiKey }: ChatHeaderProps) {
   const { isMobile, state, open } = useSidebar()
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const currentModel = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0]
+  const { models, loading } = useGroqModels({
+    apiKey,
+    autoFetch: !!apiKey,
+  })
+
+  const currentModel = models.find(m => m.id === selectedModel) || models[0]
 
   const handleRefresh = async () => {
     if (onRefresh) {
@@ -58,65 +54,96 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHead
   const handleModelChange = (modelId: string) => {
     try {
       onModelChange(modelId)
-      toast.success(`Switched to ${AVAILABLE_MODELS.find(m => m.id === modelId)?.name || modelId}`)
+      const model = models.find(m => m.id === modelId)
+      toast.success(`Switched to ${model?.id || modelId}`)
     } catch (error) {
       console.error("Failed to change model:", error)
       toast.error("Failed to change model")
     }
   }
 
+  const formatContextWindow = (contextWindow: number) => {
+    if (contextWindow >= 1000000) {
+      return `${(contextWindow / 1000000).toFixed(1)}M`
+    }
+    if (contextWindow >= 1000) {
+      return `${(contextWindow / 1000).toFixed(0)}K`
+    }
+    return contextWindow.toString()
+  }
+
+  const formatMaxTokens = (maxTokens: number) => {
+    if (maxTokens >= 1000000) {
+      return `${(maxTokens / 1000000).toFixed(1)}M`
+    }
+    if (maxTokens >= 1000) {
+      return `${(maxTokens / 1000).toFixed(0)}K`
+    }
+    return maxTokens.toString()
+  }
+
   return (
     <div className="flex h-14 items-center gap-2 border-b bg-background px-4">
       <SidebarTrigger />
 
-      <div className="ml-auto flex items-center gap-2">
+      {apiKey ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
-              <span className="hidden sm:inline">{currentModel.name}</span>
-              <span className="sm:hidden">{currentModel.id.split('-')[0]}</span>
+              <span className="hidden sm:inline">
+                {currentModel ? currentModel.id.replace('llama3-', '').replace('mixtral-', '').replace('-32768', '').replace('-8192', '').replace('-4096', '') : 'Model'}
+              </span>
+              <span className="sm:hidden">
+                {currentModel ? currentModel.id.split('-')[0] : 'Model'}
+              </span>
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            {AVAILABLE_MODELS.map((model) => (
+          <DropdownMenuContent align="start" className="w-80 max-h-96 overflow-y-auto">
+            {models.map((model: GroqModel) => (
               <DropdownMenuItem
                 key={model.id}
                 onClick={() => handleModelChange(model.id)}
-                className="flex flex-col items-start gap-1 p-3"
+                className="flex items-center justify-between gap-3 py-3 px-3 cursor-pointer hover:bg-slate-50 rounded-xl"
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{model.name}</span>
-                  {selectedModel === model.id && (
-                    <Badge variant="secondary" className="text-xs">
-                      Current
-                    </Badge>
-                  )}
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <span className="text-sm font-medium text-slate-900 truncate">
+                    {model.id}
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
+                      {model.provider}
+                    </span>
+                    <span className="text-xs text-slate-500 bg-blue-100 hover:text-blue-700 px-2 py-1 rounded-lg">
+                      Max: {formatMaxTokens(model.max_completion_tokens)}
+                    </span>
+                    <span className="text-xs text-slate-500 bg-green-100 hover:text-green-700 px-2 py-1 rounded-lg">
+                      Context: {formatContextWindow(model.context_window)}
+                    </span>
+                    {model.capabilities.vision && (
+                      <span className="text-xs text-slate-500 bg-purple-100 px-2 py-1 rounded-lg">
+                        👁️ Vision
+                      </span>
+                    )}
+                    {model.capabilities.audio && (
+                      <span className="text-xs text-slate-500 bg-indigo-100 px-2 py-1 rounded-lg">
+                        🎤 Audio
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {model.description}
-                </span>
+                {selectedModel === model.id && (
+                  <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Refresh Button */}
-        {onRefresh && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 w-8"
-            aria-label="Refresh chat"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
-        )}
-
-
-      </div>
+      ) : (
+        <div className="text-xs text-slate-400 px-3 py-2">
+          No API key
+        </div>
+      )}
     </div>
   )
 }

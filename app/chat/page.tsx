@@ -5,12 +5,12 @@ import { motion, AnimatePresence } from "framer-motion"
 
 import { Mem0Service } from "@/lib/mem0-service"
 import { conversationService, type Conversation } from "@/lib/conversation-service"
+import { localStorageService } from "@/lib/local-storage"
 import { toast } from "sonner"
 
 import {
   ChatMessages,
   ChatInput,
-  ResponseCopySection,
   ApiSetupScreen,
   ConversationSidebar,
   ChatHeader
@@ -130,7 +130,7 @@ export default function ChatPage() {
       
       // Save current model selection before unmounting
       if (selectedModel) {
-        localStorage.setItem('zen0-current-model', selectedModel)
+        localStorageService.updateDefaultModel(selectedModel)
       }
     };
   }, []) // Remove mem0Service dependency to prevent unnecessary re-runs
@@ -148,18 +148,19 @@ export default function ChatPage() {
     }
   }, [mem0ApiKey])
 
-  // Initialize selected model from settings if not already set
+  // Initialize and persist model selection
   useEffect(() => {
-    if (!selectedModel && settingsLoaded) {
-      // First try to restore from localStorage backup
-      const savedModel = localStorage.getItem('zen0-current-model')
-      if (savedModel) {
-        setSelectedModel(savedModel)
-        return
+    if (!settingsLoaded) return
+
+    if (!selectedModel) {
+      // Initialize: restore from localStorage service
+      const settings = localStorageService.getSettings()
+      if (settings.default_model) {
+        setSelectedModel(settings.default_model)
       }
-      
-      // Fallback to default model
-      setSelectedModel("llama3-8b-8192")
+    } else {
+      // Persist: save current model selection
+      localStorageService.updateDefaultModel(selectedModel)
     }
   }, [selectedModel, settingsLoaded])
 
@@ -180,9 +181,16 @@ export default function ChatPage() {
         
         // Set default model if no model is currently selected
         if (!selectedModel) {
-          // Use the model from the API key if available, otherwise use the stored default
-          const modelToUse = groqKey.model || "llama3-8b-8192"
-          setSelectedModel(modelToUse)
+          // First try to restore from localStorage service
+          const settings = localStorageService.getSettings()
+          if (settings.default_model) {
+            setSelectedModel(settings.default_model)
+          } else {
+            // Use the model from the API key if available, otherwise use the stored default
+            const settings = localStorageService.getSettings()
+            const modelToUse = groqKey.model || settings.default_model
+            setSelectedModel(modelToUse)
+          }
         }
       }
       
@@ -620,7 +628,9 @@ export default function ChatPage() {
 
             setApiKey(keyMap.groq || "")
             setMem0ApiKey(keyMap.mem0 || "")
-            setSelectedModel(modelMap.groq || "llama3-8b-8192")
+            const settings = localStorageService.getSettings()
+            const modelToUse = settings.default_model || modelMap.groq
+            setSelectedModel(modelToUse)
 
             if (keyMap.groq) {
               setShowApiSetup(false)
@@ -649,6 +659,7 @@ export default function ChatPage() {
               loadConversationMessages(currentConversationId)
             }
           }}
+          apiKey={apiKey}
         />
         
         <div className="flex-1 overflow-hidden flex flex-col chat-container">
@@ -677,10 +688,6 @@ export default function ChatPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
                   >
-                    <ResponseCopySection 
-                      streamingMessage={streamingMessage}
-                      isStreaming={isStreaming}
-                    />
                   </motion.div>
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -697,7 +704,6 @@ export default function ChatPage() {
                       onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
                       apiKey={apiKey}
                       selectedModel={selectedModel}
-                      onModelChange={(model) => setSelectedModel(model)}
                     />
                   </motion.div>
                 </motion.div>
@@ -729,16 +735,7 @@ export default function ChatPage() {
                   transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
                   className="flex-shrink-0 border-t border-slate-100"
                 >
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
-                  >
-                    <ResponseCopySection 
-                      streamingMessage={streamingMessage}
-                      isStreaming={isStreaming}
-                    />
-                  </motion.div>
+
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -754,7 +751,6 @@ export default function ChatPage() {
                       onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
                       apiKey={apiKey}
                       selectedModel={selectedModel}
-                      onModelChange={(model) => setSelectedModel(model)}
                     />
                   </motion.div>
                 </motion.div>

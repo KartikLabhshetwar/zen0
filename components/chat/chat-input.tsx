@@ -1,10 +1,8 @@
 import { useState, useCallback, memo, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Paperclip, X, ArrowUp, ChevronUp } from "lucide-react"
+import { Paperclip, X, ArrowUp } from "lucide-react"
 import { PromptInput, PromptInputTextarea, PromptInputActions, PromptInputAction } from "@/components/ui/prompt-input"
 import { FileUpload, FileUploadTrigger, FileUploadContent } from "@/components/ui/file-upload"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useGroqModels, type GroqModel } from "@/lib/hooks/use-groq-models"
 import { SpeechInput } from "@/components/ui/speech-input"
 import { toast } from "sonner"
 
@@ -18,7 +16,6 @@ interface ChatInputProps {
   onFileRemove: (index: number) => void
   apiKey?: string
   selectedModel?: string
-  onModelChange?: (model: string) => void
 }
 
 export const ChatInput = memo(function ChatInput({
@@ -30,17 +27,8 @@ export const ChatInput = memo(function ChatInput({
   onFilesChange,
   onFileRemove,
   apiKey,
-  selectedModel,
-  onModelChange
+  selectedModel
 }: ChatInputProps) {
-  const { models, loading } = useGroqModels({
-    apiKey,
-    autoFetch: !!apiKey,
-  })
-
-  // Memoize models to prevent unnecessary re-renders
-  const memoizedModels = useMemo(() => models, [models])
-
   const handleFileChange = useCallback((newFiles: File[]) => {
     onFilesChange([...files, ...newFiles])
     if (newFiles.length > 0) {
@@ -59,36 +47,6 @@ export const ChatInput = memo(function ChatInput({
       onSubmit()
     }
   }, [isStreaming, input, onSubmit])
-
-  const handleModelSelect = useCallback((modelId: string) => {
-    onModelChange?.(modelId)
-  }, [onModelChange])
-
-  const formatContextWindow = useCallback((contextWindow: number) => {
-    if (contextWindow >= 1000000) {
-      return `${(contextWindow / 1000000).toFixed(1)}M`
-    }
-    if (contextWindow >= 1000) {
-      return `${(contextWindow / 1000).toFixed(0)}K`
-    }
-    return contextWindow.toString()
-  }, [])
-
-  const formatMaxTokens = useCallback((maxTokens: number) => {
-    if (maxTokens >= 1000000) {
-      return `${(maxTokens / 1000000).toFixed(1)}M`
-    }
-    if (maxTokens >= 1000) {
-      return `${(maxTokens / 1000).toFixed(0)}K`
-    }
-    return maxTokens.toString()
-  }, [])
-
-  const getModelBadgeVariant = useCallback((contextWindow: number) => {
-    if (contextWindow >= 100000) return "default"
-    if (contextWindow >= 50000) return "secondary"
-    return "outline"
-  }, [])
 
   return (
     <FileUpload
@@ -165,103 +123,37 @@ export const ChatInput = memo(function ChatInput({
           />
 
           <PromptInputActions className="flex items-center justify-between gap-3 sm:gap-2 pt-3">
-          <div className="flex items-center gap-3 sm:gap-2">
-            <PromptInputAction tooltip="Attach files">
-              <FileUploadTrigger asChild>
-                <div className="hover:bg-slate-100 flex h-10 w-10 sm:h-9 sm:w-9 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-105 touch-manipulation">
-                  <Paperclip className="text-slate-600 w-5 h-5 sm:w-4 sm:h-4" />
-                </div>
-              </FileUploadTrigger>
-            </PromptInputAction>
-
-            <PromptInputAction tooltip="Speech to text">
-              <SpeechInput
-                onTranscriptChange={(transcript) => {
-                  const currentInput = input
-                  onInputChange(currentInput + (currentInput ? ' ' : '') + transcript)
-                }}
-              />
-            </PromptInputAction>
-
-            {apiKey ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div 
-                    className="hover:bg-slate-100 flex h-10 sm:h-9 px-3 sm:px-3 cursor-pointer items-center gap-2 rounded-xl sm:rounded-2xl transition-all duration-200 border border-slate-200/50 touch-manipulation min-w-[120px]"
-                  >
-                    <span className="text-xs sm:text-xs text-slate-600 font-medium truncate max-w-[100px]">
-                      {selectedModel ? selectedModel.replace('llama3-', '').replace('mixtral-', '').replace('-32768', '').replace('-8192', '').replace('-4096', '') : 'Model'}
-                    </span>
-                    <ChevronUp className="w-3.5 h-3.5 sm:w-3 sm:h-3 text-slate-500 flex-shrink-0" />
+            <div className="flex items-center gap-3 sm:gap-2">
+              <PromptInputAction tooltip="Attach files">
+                <FileUploadTrigger asChild>
+                  <div className="hover:bg-slate-100 flex h-10 w-10 sm:h-9 sm:w-9 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-105 touch-manipulation">
+                    <Paperclip className="text-slate-600 w-5 h-5 sm:w-4 sm:h-4" />
                   </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  side="top" 
-                  align="start"
-                  className="w-72 sm:w-80 max-h-80 sm:max-h-96 overflow-y-auto"
-                >
-                  {memoizedModels.map((model: GroqModel) => (
-                    <DropdownMenuItem
-                      key={model.id}
-                      onClick={() => {
-                        handleModelSelect(model.id)
-                      }}
-                      className="flex items-center justify-between gap-3 py-3 px-3 cursor-pointer hover:bg-slate-50 rounded-xl touch-manipulation"
-                    >
-                      <div className="flex flex-col gap-1 min-w-0 flex-1">
-                        <span className="text-sm font-medium text-slate-900 truncate">
-                          {model.id}
-                        </span>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                            {model.provider}
-                          </span>
-                          <span className="text-xs text-slate-500 bg-blue-100 hover:text-blue-700 px-2 py-1 rounded-lg">
-                            Max: {formatMaxTokens(model.max_completion_tokens)}
-                          </span>
-                          <span className="text-xs text-slate-500 bg-green-100 hover:text-green-700 px-2 py-1 rounded-lg">
-                            Context: {formatContextWindow(model.context_window)}
-                          </span>
-                          {/* Show vision capability for multimodal models */}
-                          {model.capabilities.vision && (
-                            <span className="text-xs text-slate-500 bg-purple-100 px-2 py-1 rounded-lg">
-                              👁️ Vision
-                            </span>
-                          )}
-                          {/* Show audio capability for Whisper models */}
-                          {model.capabilities.audio && (
-                            <span className="text-xs text-slate-500 bg-indigo-100 px-2 py-1 rounded-lg">
-                              🎤 Audio
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedModel === model.id && (
-                        <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="text-xs text-slate-400 px-3 py-2 sm:py-2">
-                No API key
-              </div>
-            )}
-          </div>
+                </FileUploadTrigger>
+              </PromptInputAction>
 
-          <PromptInputAction tooltip="Send message">
-            <Button
-              variant="default"
-              size="icon"
-              className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 shadow-sm touch-manipulation"
-              onClick={handleSubmit}
-              disabled={isStreaming || (!input.trim() && files.length === 0)}
-            >
-              <ArrowUp className="w-5 h-5 sm:w-4 sm:h-4" />
-            </Button>
-          </PromptInputAction>
-        </PromptInputActions>
+              <PromptInputAction tooltip="Speech to text">
+                <SpeechInput
+                  onTranscriptChange={(transcript) => {
+                    const currentInput = input
+                    onInputChange(currentInput + (currentInput ? ' ' : '') + transcript)
+                  }}
+                />
+              </PromptInputAction>
+            </div>
+
+            <PromptInputAction tooltip="Send message">
+              <Button
+                variant="default"
+                size="icon"
+                className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 shadow-sm touch-manipulation"
+                onClick={handleSubmit}
+                disabled={isStreaming || (!input.trim() && files.length === 0)}
+              >
+                <ArrowUp className="w-5 h-5 sm:w-4 sm:h-4" />
+              </Button>
+            </PromptInputAction>
+          </PromptInputActions>
         </PromptInput>
       </div>
 

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Markdown } from "@/components/ui/markdown"
 import { Copy, Paperclip } from "lucide-react"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, formatModelName } from "@/lib/utils"
 
 interface ChatMessageProps {
   message: {
@@ -16,9 +16,10 @@ interface ChatMessageProps {
     metadata?: Record<string, any>
   }
   index: number
+  selectedModel?: string
 }
 
-export function ChatMessage({ message, index }: ChatMessageProps) {
+export function ChatMessage({ message, index, selectedModel }: ChatMessageProps) {
   const isUser = message.role === "user"
   const isAssistant = message.role === "assistant"
 
@@ -103,17 +104,27 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
             "text-xs opacity-60 mt-2",
             isUser ? "text-right text-white/70 dark:text-primary-foreground/70" : "text-left text-muted-foreground"
           )}>
-            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {(() => {
+              try {
+                const date = new Date(message.created_at);
+                if (isNaN(date.getTime())) {
+                  return "Invalid time";
+                }
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              } catch (error) {
+                return "Invalid time";
+              }
+            })()}
           </div>
         )}
       </div>
       
       {/* Copy Button Below Message */}
-      <div className={`mt-2 flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`mt-2 flex items-center gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-2 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
+          className="h-5 px-1.5 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
           onClick={async () => {
             try {
               let textToCopy = "";
@@ -133,8 +144,13 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
             }
           }}
         >
-          <Copy className="h-3 w-3 mr-1" />
+          <Copy className="h-2.5 w-2.5 mr-0.5" />
         </Button>
+        {isAssistant && selectedModel && (
+          <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md font-mono">
+            {formatModelName(selectedModel)}
+          </span>
+        )}
       </div>
     </div>
   )
