@@ -89,7 +89,7 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh, apiKey }: 
       {apiKey ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="ghost" size="sm" className="gap-2">
               <span className="hidden sm:inline">
                 {currentModel ? currentModel.id.replace('llama3-', '').replace('mixtral-', '').replace('-32768', '').replace('-8192', '').replace('-4096', '') : 'Model'}
               </span>
