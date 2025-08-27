@@ -101,8 +101,14 @@ export default function ChatPage() {
         const convos = await conversationService.getConversations()
         setConversations(convos)
         
-        // Only set a conversation if none is currently selected and one exists
-        if (!currentConversationId && convos.length > 0) {
+        // If no conversations exist, create one automatically
+        if (convos.length === 0) {
+          const newConvo = await conversationService.createConversation()
+          setConversations([newConvo])
+          setCurrentConversationId(newConvo.id)
+          setMessages([])
+        } else if (!currentConversationId) {
+          // Set the most recent conversation if none is currently selected
           const mostRecentConvo = convos[0]
           setCurrentConversationId(mostRecentConvo.id)
           // Load messages for the most recent conversation
@@ -344,15 +350,25 @@ export default function ChatPage() {
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     
-    // Only send message if there's an active conversation
-    if (!currentConversationId) {
-      toast.error("Please start a new conversation first")
-      return
+    // Create conversation if none exists
+    let conversationId = currentConversationId
+    if (!conversationId) {
+      try {
+        const newConvo = await conversationService.createConversation()
+        setCurrentConversationId(newConvo.id)
+        setConversations(prev => [newConvo, ...prev])
+        conversationId = newConvo.id
+        toast.success("New conversation started")
+      } catch (error) {
+        console.error("Failed to create conversation:", error)
+        toast.error("Failed to create conversation")
+        return
+      }
     }
     
-    // Store message in existing conversation
-    await conversationService.addMessage(currentConversationId, {
-      conversationId: currentConversationId,
+    // Store message in conversation
+    await conversationService.addMessage(conversationId, {
+      conversationId: conversationId,
       role: "user",
       content: typeof messageContent === 'string' ? messageContent : userInput
     })
@@ -480,12 +496,28 @@ export default function ChatPage() {
       setMessages(finalMessages)
 
       // Store assistant message in conversation
-      if (currentConversationId) {
-        await conversationService.addMessage(currentConversationId, {
-          conversationId: currentConversationId,
+      if (conversationId) {
+        await conversationService.addMessage(conversationId, {
+          conversationId: conversationId,
           role: "assistant",
           content: completeMessage
         })
+        
+        // Update conversation title with the first user message if it's a new conversation
+        if (messages.length === 0) {
+          const firstUserMessage = newMessages.find(msg => msg.role === "user");
+          if (firstUserMessage && typeof firstUserMessage.content === 'string') {
+            const title = firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '');
+            await conversationService.updateConversation(conversationId, { title });
+            
+            // Update local state
+            setConversations(prev => prev.map(conv => 
+              conv.id === conversationId 
+                ? { ...conv, title }
+                : conv
+            ));
+          }
+        }
       }
 
       // Performance monitoring
@@ -631,7 +663,7 @@ export default function ChatPage() {
                 className="flex-1 flex flex-col items-center pt-24"
               >
                 <div className="text-center mb-8">
-                  <h2 className="text-xl font-semibold text-slate-900 mb-2">New Conversation</h2>
+                  <h2 className="text-xl font-semibold text-slate-900 mb-2">Hello Anon</h2>
                   <p className="text-sm text-slate-600">Start typing to begin your conversation</p>
                 </div>
                 <motion.div 
