@@ -106,7 +106,7 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
         <Button
           variant="ghost"
           size="sm"
-          className="h-4 px-1 bg-background/90 backdrop-blur-sm border border-border/60 hover:bg-accent transition-colors text-xs"
+          className="h-6 w-6 p-0 bg-background/80 backdrop-blur-sm border border-border/40 hover:bg-accent/80 transition-colors"
           onClick={async () => {
             try {
               let textToCopy = "";
@@ -126,7 +126,7 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
             }
           }}
         >
-          <Copy className="h-2 w-2 mr-0" />
+          <Copy className="h-3 w-3" />
         </Button>
         {isAssistant && selectedModel && (
           <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md font-mono">

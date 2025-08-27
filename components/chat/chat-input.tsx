@@ -134,6 +134,8 @@ export const ChatInput = memo(function ChatInput({
 
               <PromptInputAction tooltip="Speech to text">
                 <SpeechInput
+                  apiKey={apiKey}
+                  selectedModel={selectedModel}
                   onTranscriptChange={(transcript) => {
                     const currentInput = input
                     onInputChange(currentInput + (currentInput ? ' ' : '') + transcript)

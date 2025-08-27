@@ -1,7 +1,7 @@
 export { ChatMessage } from "./chat-message"
 export { ChatMessages } from "./chat-messages"
 export { ChatInput } from "./chat-input"
-export { ResponseCopySection } from "./response-copy-section"
+
 
 export { ConversationSidebar } from "./conversation-sidebar"
 export { ChatHeader } from "./chat-header"

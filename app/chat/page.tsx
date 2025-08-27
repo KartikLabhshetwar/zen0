@@ -611,30 +611,24 @@ export default function ChatPage() {
 
   if (showApiSetup) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md mx-auto text-center space-y-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl">
-            <Key className="w-8 h-8 text-slate-600" />
-          </div>
-          <div className="space-y-3">
-            <h1 className="text-2xl font-semibold text-slate-900">API Key Required</h1>
-            <p className="text-slate-600">
-              Please configure your API keys to start chatting.
-            </p>
-          </div>
-          <Button
-            onClick={() => setShowBYOKSetup(true)}
-            className="bg-slate-700 hover:bg-slate-800 rounded-2xl"
-          >
-            Configure API Keys
-          </Button>
-        </div>
-        
-        <BYOKSetupDialog 
-          open={showBYOKSetup} 
-          onOpenChange={setShowBYOKSetup}
-        />
-      </div>
+          
+          <BYOKSetupDialog 
+            open={true} 
+            onOpenChange={(open) => {
+              if (!open) {
+                // When dialog closes, check if API keys were added
+                const keys = localStorage.getItem("zen0-api-keys")
+                if (keys) {
+                  const parsedKeys = JSON.parse(keys)
+                  const groqKey = parsedKeys.find((key: any) => key.provider === "groq")
+                  if (groqKey && groqKey.key) {
+                    setApiKey(groqKey.key)
+                    setShowApiSetup(false)
+                  }
+                }
+              }
+            }}
+          />
     )
   }
 
@@ -757,8 +751,11 @@ export default function ChatPage() {
           </AnimatePresence>
         </div>
       </main>
-
-
+      
+      <BYOKSetupDialog
+        open={showBYOKSetup}
+        onOpenChange={setShowBYOKSetup}
+      />
     </div>
   )
 }
