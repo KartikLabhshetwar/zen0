@@ -115,15 +115,7 @@ export function ChatHeader({ selectedModel, onModelChange, onRefresh }: ChatHead
           </Button>
         )}
 
-        {/* Settings Button */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          aria-label="Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+
       </div>
     </div>
   )

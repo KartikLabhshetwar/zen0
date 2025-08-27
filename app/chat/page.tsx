@@ -12,7 +12,8 @@ import {
   ResponseCopySection,
   ApiSetupScreen,
   ConversationSidebar,
-  ChatHeader
+  ChatHeader,
+  WelcomeScreen
 } from "@/components/chat"
 
 
@@ -42,6 +43,7 @@ export default function ChatPage() {
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [currentConversationId, setCurrentConversationId] = useState<string>("")
+  const [conversations, setConversations] = useState<Conversation[]>([])
 
   const [files, setFiles] = useState<File[]>([])
 
@@ -95,17 +97,16 @@ export default function ChatPage() {
       try {
         await loadLocalSettings()
         
-        // Clean up any corrupted data first
-        await conversationService.cleanupCorruptedData()
+        // Load conversations to check if any exist
+        const convos = await conversationService.getConversations()
+        setConversations(convos)
         
         // Only set a conversation if none is currently selected and one exists
-        if (!currentConversationId) {
-          const mostRecentConvo = await conversationService.getMostRecentConversation()
-          if (mostRecentConvo) {
-            setCurrentConversationId(mostRecentConvo.id)
-            // Load messages for the most recent conversation
-            await loadConversationMessages(mostRecentConvo.id)
-          }
+        if (!currentConversationId && convos.length > 0) {
+          const mostRecentConvo = convos[0]
+          setCurrentConversationId(mostRecentConvo.id)
+          // Load messages for the most recent conversation
+          await loadConversationMessages(mostRecentConvo.id)
         }
       } catch (error) {
         console.error("Failed to initialize chat:", error)
@@ -218,7 +219,44 @@ export default function ChatPage() {
     await loadConversationMessages(conversationId)
   }, [loadConversationMessages])
 
-  // Handle new conversation
+  // Listen for conversation updates - simplified
+  useEffect(() => {
+    const handleConversationDeleted = async () => {
+      const updatedConvos = await conversationService.getConversations()
+      setConversations(updatedConvos)
+      
+      // If current conversation was deleted, clear it and show welcome screen
+      if (currentConversationId && !updatedConvos.find(c => c.id === currentConversationId)) {
+        setCurrentConversationId("")
+        setMessages([])
+        setInput("")
+        setFiles([])
+      }
+      
+      // If no conversations left, ensure we show welcome screen
+      if (updatedConvos.length === 0) {
+        setCurrentConversationId("")
+        setMessages([])
+        setInput("")
+        setFiles([])
+      }
+    }
+    
+    const handleConversationUpdated = async () => {
+      const updatedConvos = await conversationService.getConversations()
+      setConversations(updatedConvos)
+    }
+    
+    window.addEventListener('conversation-deleted', handleConversationDeleted)
+    window.addEventListener('conversation-updated', handleConversationUpdated)
+    
+    return () => {
+      window.removeEventListener('conversation-deleted', handleConversationDeleted)
+      window.removeEventListener('conversation-updated', handleConversationUpdated)
+    }
+  }, [currentConversationId])
+
+  // Handle new conversation - simplified for speed
   const handleNewConversation = useCallback(async () => {
     try {
       const newConvo = await conversationService.createConversation()
@@ -227,8 +265,6 @@ export default function ChatPage() {
       setInput("")
       setFiles([])
       
-      // Trigger a custom event to refresh the sidebar
-      window.dispatchEvent(new CustomEvent('conversation-created'))
       
       toast.success("New conversation started")
     } catch (error) {
@@ -236,6 +272,8 @@ export default function ChatPage() {
       toast.error("Failed to create new conversation")
     }
   }, [])
+
+
 
   // Handle mobile sidebar close
   useEffect(() => {
@@ -306,28 +344,18 @@ export default function ChatPage() {
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     
-    // Create conversation if none exists, or store message in existing conversation
+    // Only send message if there's an active conversation
     if (!currentConversationId) {
-      const newConvo = await conversationService.createConversation()
-      setCurrentConversationId(newConvo.id)
-      
-      // Store the user message in the new conversation
-      await conversationService.addMessage(newConvo.id, {
-        conversationId: newConvo.id,
-        role: "user",
-        content: typeof messageContent === 'string' ? messageContent : userInput
-      })
-      
-      // Trigger a custom event to refresh the sidebar
-      window.dispatchEvent(new CustomEvent('conversation-created'))
-    } else {
-      // Store message in existing conversation
-      await conversationService.addMessage(currentConversationId, {
-        conversationId: currentConversationId,
-        role: "user",
-        content: typeof messageContent === 'string' ? messageContent : userInput
-      })
+      toast.error("Please start a new conversation first")
+      return
     }
+    
+    // Store message in existing conversation
+    await conversationService.addMessage(currentConversationId, {
+      conversationId: currentConversationId,
+      role: "user",
+      content: typeof messageContent === 'string' ? messageContent : userInput
+    })
     
     // Clear files after sending (they're now part of the message content)
     setFiles([])
@@ -592,33 +620,41 @@ export default function ChatPage() {
         />
         
         <div className="flex-1 overflow-hidden min-h-0">
-          <ChatMessages 
-            messages={messages}
-            streamingMessage={streamingMessage}
-            isStreaming={isStreaming}
-            isProcessing={isProcessing}
-          />
+          {conversations.length === 0 ? (
+            <WelcomeScreen onNewConversation={handleNewConversation} />
+          ) : (
+            <ChatMessages 
+              messages={messages}
+              streamingMessage={streamingMessage}
+              isStreaming={isStreaming}
+              isProcessing={isProcessing}
+            />
+          )}
         </div>
         
-        <div className="flex-shrink-0 border-t border-slate-100">
-          <ResponseCopySection 
-            streamingMessage={streamingMessage}
-            isStreaming={isStreaming}
-          />
-          <ChatInput
-            input={input}
-            onInputChange={debouncedSetInput}
-            onSubmit={sendMessage}
-            isStreaming={isStreaming}
-            files={files}
-            onFilesChange={setFiles}
-            onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
-            apiKey={apiKey}
-            selectedModel={selectedModel}
-            onModelChange={(model) => setSelectedModel(model)}
-          />
-        </div>
+        {conversations.length > 0 && (
+          <div className="flex-shrink-0 border-t border-slate-100">
+            <ResponseCopySection 
+              streamingMessage={streamingMessage}
+              isStreaming={isStreaming}
+            />
+            <ChatInput
+              input={input}
+              onInputChange={debouncedSetInput}
+              onSubmit={sendMessage}
+              isStreaming={isStreaming}
+              files={files}
+              onFilesChange={setFiles}
+              onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+              apiKey={apiKey}
+              selectedModel={selectedModel}
+              onModelChange={(model) => setSelectedModel(model)}
+            />
+          </div>
+        )}
       </main>
+
+
     </div>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, MessageSquare, Trash2, Settings, Bot, User, Search, Clock, Star } from "lucide-react"
+import { Plus, MessageSquare, Trash2, Search, Clock, Key, Database } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 
@@ -25,6 +25,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { conversationService, type Conversation } from "@/lib/conversation-service"
+import { DataManagerDialog } from "./data-manager-dialog"
+import { BYOKSetupDialog } from "./byok-setup-dialog"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ConversationSidebarProps {
   currentConversationId?: string
@@ -41,6 +44,9 @@ export function ConversationSidebar({
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([])
+  const [showDataManager, setShowDataManager] = useState(false)
+  const [showBYOKSetup, setShowBYOKSetup] = useState(false)
+  const isMobile = useIsMobile()
 
   const loadConversations = useCallback(async () => {
     try {
@@ -72,14 +78,10 @@ export function ConversationSidebar({
 
   const handleNewConversation = useCallback(async () => {
     try {
-      const newConvo = await conversationService.createConversation()
-      setConversations(prev => [newConvo, ...prev])
-      setSearchQuery("") // Clear search when creating new conversation
       onNewConversation()
-      toast.success("New conversation created")
     } catch (error) {
-      console.error("Failed to create conversation:", error)
-      toast.error("Failed to create conversation")
+      console.error("Failed to handle new conversation:", error)
+      toast.error("Failed to create new conversation")
     }
   }, [onNewConversation])
 
@@ -90,51 +92,117 @@ export function ConversationSidebar({
       await conversationService.deleteConversation(id)
       setConversations(prev => prev.filter(c => c.id !== id))
       
-      if (currentConversationId === id) {
-        onNewConversation()
-      }
+      window.dispatchEvent(new CustomEvent('conversation-deleted'))
       
       toast.success("Conversation deleted")
     } catch (error) {
       console.error("Failed to delete conversation:", error)
       toast.error("Failed to delete conversation")
     }
-  }, [currentConversationId, onNewConversation])
+  }, [])
+
+  // Data management functions
+  const handleExportData = useCallback(async () => {
+    try {
+      const data = {
+        conversations: await conversationService.getConversations(),
+        settings: {
+          apiKeys: localStorage.getItem("zen0-api-keys")
+        }
+      }
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `zen0-data-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast.success("Data exported successfully")
+    } catch (error) {
+      console.error("Failed to export data:", error)
+      toast.error("Failed to export data")
+    }
+  }, [])
+
+  const handleImportData = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0]
+      if (!file) return
+      
+      const text = await file.text()
+      const data = JSON.parse(text)
+      
+      if (data.conversations) {
+        localStorage.setItem('zen0-conversations', JSON.stringify(data.conversations))
+      }
+      
+      if (data.settings?.apiKeys) {
+        localStorage.setItem('zen0-api-keys', data.settings.apiKeys)
+      }
+      
+      const updatedConvos = await conversationService.getConversations()
+      setConversations(updatedConvos)
+      
+      toast.success("Data imported successfully")
+      setShowDataManager(false)
+    } catch (error) {
+      console.error("Failed to import data:", error)
+      toast.error("Failed to import data")
+    }
+  }, [])
+
+  const handleClearAllData = useCallback(async () => {
+    try {
+      await conversationService.clearConversations()
+      setConversations([])
+      
+      toast.success("All data cleared successfully")
+      setShowDataManager(false)
+    } catch (error) {
+      console.error("Failed to clear data:", error)
+      toast.error("Failed to clear data")
+    }
+  }, [])
 
   const formatTitle = (title: string) => {
+    if (!title || title.trim() === "") return "Untitled Chat"
     return title.length > 30 ? title.substring(0, 30) + "..." : title
   }
 
   const formatLastMessage = (message?: string) => {
-    if (!message) return "No messages yet"
-    return message.length > 50 ? message.substring(0, 50) + "..." : message
+    if (!message || message.trim() === "") return "No messages yet"
+    return message.length > 45 ? message.substring(0, 45) + "..." : message
   }
-
-  // Group conversations by recency
-  const recentConversations = filteredConversations.slice(0, 5)
-  const olderConversations = filteredConversations.slice(5)
 
   useEffect(() => {
     loadConversations()
     
-    // Listen for storage changes to sync conversations across tabs
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "zen0-conversations") {
         loadConversations()
       }
     }
     
-    // Listen for custom events when conversations are created
     const handleConversationCreated = () => {
+      loadConversations()
+    }
+    
+    const handleConversationUpdated = () => {
       loadConversations()
     }
     
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('conversation-created', handleConversationCreated)
+    window.addEventListener('conversation-updated', handleConversationUpdated)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('conversation-created', handleConversationCreated)
+      window.removeEventListener('conversation-updated', handleConversationUpdated)
     }
   }, [loadConversations])
 
@@ -165,11 +233,11 @@ export function ConversationSidebar({
       
       <SidebarContent>
         {isLoading ? (
-          <div className="space-y-4 p-2">
+          <div className="space-y-4 p-4 text-center">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="space-y-2">
-                <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
-                <div className="h-3 bg-muted animate-pulse rounded w-1/2" />
+              <div key={i} className="space-y-3">
+                <div className="h-4 bg-muted animate-pulse rounded w-3/4 mx-auto" />
+                <div className="h-3 bg-muted animate-pulse rounded w-1/2 mx-auto" />
               </div>
             ))}
           </div>
@@ -190,127 +258,93 @@ export function ConversationSidebar({
             )}
           </div>
         ) : (
-          <>
-            {/* Recent Conversations */}
-            {recentConversations.length > 0 && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Recent
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {recentConversations.map((conversation) => (
-                      <SidebarMenuItem key={conversation.id}>
-                        <SidebarMenuButton
-                          isActive={currentConversationId === conversation.id}
-                          onClick={() => onConversationSelect(conversation.id)}
-                          className="group"
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="font-medium truncate">
-                              {formatTitle(conversation.title)}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {formatLastMessage(conversation.lastMessage)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true })}
-                            </div>
-                          </div>
-                        </SidebarMenuButton>
-                        
-                        <SidebarMenuAction
-                          onClick={(e) => handleDeleteConversation(conversation.id, e)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Delete conversation"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </SidebarMenuAction>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
+          <SidebarGroup className="mb-4">
+            <SidebarGroupLabel className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Conversations
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredConversations.map((conversation, index) => (
+                  <SidebarMenuItem key={conversation.id} className="mb-2">
+                    <SidebarMenuButton
+                      isActive={currentConversationId === conversation.id}
+                      onClick={() => onConversationSelect(conversation.id)}
+                      size="lg"
+                      className="group p-3 h-auto min-h-[2rem]"
+                    >
+                      <div className="flex-1 min-w-0 text-left space-y-2 overflow-hidden">
+                        <div className="font-semibold text-sm leading-normal text-gray-900 dark:text-gray-100 break-words">
+                          {formatTitle(conversation.title)}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-500 leading-normal">
+                          {formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true })}
+                        </div>
+                      </div>
+                    </SidebarMenuButton>
+                    
+                    <SidebarMenuAction
+                      onClick={(e) => handleDeleteConversation(conversation.id, e)}
+                      className={`transition-opacity ${
+                        isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                      title="Delete conversation"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </SidebarMenuAction>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-            {/* Older Conversations */}
-            {olderConversations.length > 0 && (
-              <>
-                <SidebarSeparator />
-                <SidebarGroup>
-                  <SidebarGroupLabel className="flex items-center gap-2">
-                    <Star className="h-4 w-4" />
-                    Older
-                  </SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {olderConversations.map((conversation) => (
-                        <SidebarMenuItem key={conversation.id}>
-                          <SidebarMenuButton
-                            isActive={currentConversationId === conversation.id}
-                            onClick={() => onConversationSelect(conversation.id)}
-                            className="group"
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                            <div className="flex-1 min-w-0 text-left">
-                              <div className="font-medium truncate">
-                                {formatTitle(conversation.title)}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {formatLastMessage(conversation.lastMessage)}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true })}
-                              </div>
-                            </div>
-                          </SidebarMenuButton>
-                          
-                          <SidebarMenuAction
-                            onClick={(e) => handleDeleteConversation(conversation.id, e)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Delete conversation"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </SidebarMenuAction>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              </>
-            )}
-
-            {/* Search Results Badge */}
-            {searchQuery && (
-              <div className="px-4 py-2">
-                <Badge variant="secondary" className="w-full justify-center">
-                  {filteredConversations.length} result{filteredConversations.length !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-            )}
-          </>
+        {/* Search Results Badge */}
+        {searchQuery && (
+          <div className="px-4 py-2">
+            <Badge variant="secondary" className="w-full justify-center">
+              {filteredConversations.length} result{filteredConversations.length !== 1 ? 's' : ''}
+            </Badge>
+          </div>
         )}
       </SidebarContent>
       
       <SidebarFooter>
         <SidebarSeparator />
-        <div className="p-2">
+        <div className="p-2 space-y-2">
           <Button
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              // TODO: Implement settings
-              toast.info("Settings coming soon")
-            }}
+            onClick={() => setShowBYOKSetup(true)}
           >
-            <Settings className="h-4 w-4" />
-            Settings
+            <Key className="h-4 w-4" />
+            API Keys
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowDataManager(true)}
+          >
+            <Database className="h-4 w-4" />
+            Data Management
           </Button>
         </div>
       </SidebarFooter>
+
+      <DataManagerDialog
+        open={showDataManager}
+        onOpenChange={setShowDataManager}
+        onExport={handleExportData}
+        onImport={handleImportData}
+        onClearAll={handleClearAllData}
+      />
+
+      <BYOKSetupDialog
+        open={showBYOKSetup}
+        onOpenChange={setShowBYOKSetup}
+      />
     </Sidebar>
   )
 }
