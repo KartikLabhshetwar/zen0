@@ -3,15 +3,23 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 
 import { Mem0Service } from "@/lib/mem0-service"
+import { conversationService, type Conversation } from "@/lib/conversation-service"
 import { toast } from "sonner"
 
 import {
   ChatMessages,
   ChatInput,
   ResponseCopySection,
-  ApiSetupScreen
+  ApiSetupScreen,
+  ConversationSidebar,
+  ChatHeader
 } from "@/components/chat"
 
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarRail
+} from "@/components/ui/sidebar"
 
 interface ChatMessage {
   role: "user" | "assistant" | "system"
@@ -34,10 +42,10 @@ export default function ChatPage() {
   const [showReasoning, setShowReasoning] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
 
-
   const [apiKey, setApiKey] = useState<string>("")
   const [mem0ApiKey, setMem0ApiKey] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
+  const [currentConversationId, setCurrentConversationId] = useState<string>("")
 
   const [files, setFiles] = useState<File[]>([])
 
@@ -85,9 +93,31 @@ export default function ChatPage() {
     }
   }, [mem0Service])
 
+  // Initialize conversation and load settings
   useEffect(() => {
-    // Only load settings once when component mounts, not on every mem0Service change
-    loadLocalSettings()
+    const initializeChat = async () => {
+      try {
+        await loadLocalSettings()
+        
+        // Clean up any corrupted data first
+        await conversationService.cleanupCorruptedData()
+        
+        // Only set a conversation if none is currently selected
+        if (!currentConversationId) {
+          const defaultConvo = await conversationService.getOrCreateDefaultConversation()
+          if (defaultConvo) {
+            setCurrentConversationId(defaultConvo.id)
+            // Load messages for the default conversation
+            await loadConversationMessages(defaultConvo.id)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to initialize chat:", error)
+        toast.error("Failed to initialize chat")
+      }
+    }
+    
+    initializeChat()
     
     // Cleanup function for Mem0 service
     return () => {
@@ -114,11 +144,6 @@ export default function ChatPage() {
       }
     }
   }, [mem0ApiKey])
-
-
-
-
-
 
   // Initialize selected model from settings if not already set
   useEffect(() => {
@@ -174,9 +199,54 @@ export default function ChatPage() {
     setSettingsLoaded(true)
   }
 
+  // Load messages for current conversation
+  const loadConversationMessages = useCallback(async (conversationId: string) => {
+    try {
+      const conversationMessages = await conversationService.getMessages(conversationId)
+      const formattedMessages: ChatMessage[] = conversationMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        created_at: msg.createdAt,
+        metadata: {}
+      }))
+      setMessages(formattedMessages)
+    } catch (error) {
+      console.error("Failed to load conversation messages:", error)
+      setMessages([])
+    }
+  }, [])
 
+  // Handle conversation selection
+  const handleConversationSelect = useCallback(async (conversationId: string) => {
+    setCurrentConversationId(conversationId)
+    await loadConversationMessages(conversationId)
+  }, [loadConversationMessages])
 
+  // Handle new conversation
+  const handleNewConversation = useCallback(async () => {
+    try {
+      const newConvo = await conversationService.createConversation()
+      setCurrentConversationId(newConvo.id)
+      setMessages([])
+      setInput("")
+      setFiles([])
+      toast.success("New conversation started")
+    } catch (error) {
+      console.error("Failed to create new conversation:", error)
+      toast.error("Failed to create new conversation")
+    }
+  }, [])
 
+  // Handle mobile sidebar close
+  useEffect(() => {
+    const handleMobileSidebarClose = () => {
+      // This will be handled by the sidebar component itself
+      console.log("Mobile sidebar close requested")
+    }
+
+    window.addEventListener('close-mobile-sidebar', handleMobileSidebarClose)
+    return () => window.removeEventListener('close-mobile-sidebar', handleMobileSidebarClose)
+  }, [])
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isStreaming) return
@@ -235,6 +305,15 @@ export default function ChatPage() {
     // Update messages immediately for instant feedback
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
+    
+    // Store message in conversation
+    if (currentConversationId) {
+      await conversationService.addMessage(currentConversationId, {
+        conversationId: currentConversationId,
+        role: "user",
+        content: typeof messageContent === 'string' ? messageContent : userInput
+      })
+    }
     
     // Clear files after sending (they're now part of the message content)
     setFiles([])
@@ -358,6 +437,15 @@ export default function ChatPage() {
       const finalMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: completeMessage }]
       setMessages(finalMessages)
 
+      // Store assistant message in conversation
+      if (currentConversationId) {
+        await conversationService.addMessage(currentConversationId, {
+          conversationId: currentConversationId,
+          role: "assistant",
+          content: completeMessage
+        })
+      }
+
       // Performance monitoring
       const responseTime = performance.now() - startTime
       console.log(`[zen0] Response time: ${responseTime.toFixed(2)}ms`)
@@ -432,12 +520,7 @@ export default function ChatPage() {
       setReasoningText("")
       setFiles([]) // Clear files after sending
     }
-  }, [input, isStreaming, apiKey, messages, mem0Service, files])
-
-
-
-
-
+  }, [input, isStreaming, apiKey, messages, mem0Service, files, currentConversationId, selectedModel])
 
   if (showApiSetup) {
     return (
@@ -475,38 +558,53 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden w-full max-w-full">
-
-
-        <div className="flex-1 overflow-hidden min-h-0">
-          <ChatMessages 
-            messages={messages}
-            streamingMessage={streamingMessage}
-            isStreaming={isStreaming}
-            isProcessing={isProcessing}
-          />
-        </div>
-        <div className="flex-shrink-0 border-t border-slate-100">
-          <ResponseCopySection 
-            streamingMessage={streamingMessage}
-            isStreaming={isStreaming}
-          />
-          <ChatInput
-            input={input}
-            onInputChange={debouncedSetInput}
-            onSubmit={sendMessage}
-            isStreaming={isStreaming}
-            files={files}
-            onFilesChange={setFiles}
-            onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
-            apiKey={apiKey}
-            selectedModel={selectedModel}
-            onModelChange={(model) => setSelectedModel(model)}
-          />
-        </div>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-screen bg-background overflow-hidden">
+        <ConversationSidebar
+          currentConversationId={currentConversationId}
+          onConversationSelect={handleConversationSelect}
+          onNewConversation={handleNewConversation}
+        />
+        
+        <SidebarRail />
+        
+        <SidebarInset>
+          <div className="flex flex-col h-full">
+            <ChatHeader
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+            />
+            
+            <div className="flex-1 overflow-hidden min-h-0">
+              <ChatMessages 
+                messages={messages}
+                streamingMessage={streamingMessage}
+                isStreaming={isStreaming}
+                isProcessing={isProcessing}
+              />
+            </div>
+            
+            <div className="flex-shrink-0 border-t border-slate-100">
+              <ResponseCopySection 
+                streamingMessage={streamingMessage}
+                isStreaming={isStreaming}
+              />
+              <ChatInput
+                input={input}
+                onInputChange={debouncedSetInput}
+                onSubmit={sendMessage}
+                isStreaming={isStreaming}
+                files={files}
+                onFilesChange={setFiles}
+                onFileRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+                apiKey={apiKey}
+                selectedModel={selectedModel}
+                onModelChange={(model) => setSelectedModel(model)}
+              />
+            </div>
+          </div>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }
