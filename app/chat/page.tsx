@@ -642,7 +642,7 @@ export default function ChatPage() {
       />
       
       <main className="flex-1 flex flex-col min-w-0 relative">
-        <div className="sticky top-0 z-20 bg-background chat-header-sticky">
+        <div className="sticky top-0 z-50 bg-background chat-header-sticky">
           <ChatHeader
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
