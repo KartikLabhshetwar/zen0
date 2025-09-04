@@ -4,6 +4,7 @@ import { Copy, Paperclip, Image as ImageIcon, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { cn, formatModelName } from "@/lib/utils"
 import { useState } from "react"
+import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 
 interface ChatMessageProps {
   message: {
@@ -15,6 +16,7 @@ interface ChatMessageProps {
     }>
     created_at?: string
     metadata?: Record<string, any>
+    reasoning?: string
   }
   index: number
   selectedModel?: string
@@ -109,7 +111,17 @@ export function ChatMessage({ message, index, selectedModel }: ChatMessageProps)
       >
         {isAssistant ? (
           <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-p:mb-3 last:prose-p:mb-0">
-            <Markdown className="text-sm leading-relaxed [&>*]:max-w-full [&>*]:break-words [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
+            {/* Reasoning Section - Show at the top when reasoning is available */}
+            {message.reasoning && message.reasoning.trim() && (
+              <Reasoning>
+                <ReasoningTrigger />
+                <ReasoningContent>
+                  {message.reasoning}
+                </ReasoningContent>
+              </Reasoning>
+            )}
+            
+            <Markdown className="w-full max-w-full prose-sm sm:prose-base break-words [&>*]:mb-3 [&>p]:mb-2 [&>ul]:mb-3 [&>ol]:mb-3 [&>blockquote]:mb-3 [&>pre]:overflow-x-auto [&>pre]:whitespace-pre-wrap [&>code]:break-words">
               {typeof message.content === 'string' ? message.content : 'Image analysis response'}
             </Markdown>
           </div>

@@ -9,6 +9,7 @@ import { useMobileKeyboard } from "@/hooks/use-mobile-keyboard"
 import { Mem0Service } from "@/lib/mem0-service"
 import { conversationService, type Conversation } from "@/lib/conversation-service"
 import { localStorageService } from "@/lib/local-storage"
+import { useWebSearch } from "@/hooks/use-web-search"
 import { toast } from "sonner"
 
 import {
@@ -30,6 +31,7 @@ interface ChatMessage {
   }>
   created_at?: string
   metadata?: Record<string, any>
+  reasoning?: string
 }
 
 export default function ChatPage() {
@@ -38,8 +40,6 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState("")
-  const [reasoningText, setReasoningText] = useState("")
-  const [showReasoning, setShowReasoning] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const [showBYOKSetup, setShowBYOKSetup] = useState(false)
 
@@ -51,9 +51,19 @@ export default function ChatPage() {
   const [lastActiveConversationId, setLastActiveConversationId] = useState<string>("")
 
   const [files, setFiles] = useState<File[]>([])
+  const [selectedSearchMode, setSelectedSearchMode] = useState<string>("")
 
   // Flag to prevent multiple calls to loadLocalSettings
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  // Web search hook
+  const { 
+    search, 
+    streamSearch, 
+    isLoading: isWebSearchLoading, 
+    error: webSearchError,
+    result: webSearchResult 
+  } = useWebSearch()
 
   // Mobile keyboard handling
   const { isKeyboardOpen, inputBottom } = useMobileKeyboard()
@@ -236,7 +246,8 @@ export default function ChatPage() {
         role: msg.role,
         content: msg.content,
         created_at: msg.createdAt,
-        metadata: {}
+        metadata: msg.metadata || {},
+        reasoning: msg.reasoning
       }))
       setMessages(formattedMessages)
     } catch (error) {
@@ -330,6 +341,114 @@ export default function ChatPage() {
 
     const startTime = performance.now()
     const userInput = input.trim()
+
+    // Handle web search mode
+    if (selectedSearchMode === "Web Search") {
+      try {
+        setInput("")
+        setIsProcessing(true)
+        setIsStreaming(true)
+        setStreamingMessage("")
+
+        // Add user message to chat
+        const userMessage: ChatMessage = {
+          role: "user",
+          content: userInput,
+          metadata: { searchMode: "Web Search" }
+        }
+        const newMessages = [...messages, userMessage]
+        setMessages(newMessages)
+
+        // Create conversation if none exists
+        let conversationId = currentConversationId
+        if (!conversationId) {
+          try {
+            const newConvo = await conversationService.createConversation()
+            setCurrentConversationId(newConvo.id)
+            setLastActiveConversationId(newConvo.id)
+            localStorage.setItem("zen0-last-active-conversation", newConvo.id)
+            setConversations(prev => [newConvo, ...prev])
+            conversationId = newConvo.id
+          } catch (error) {
+            console.error("Failed to create conversation", error)
+            toast.error("Failed to create conversation")
+            return
+          }
+        }
+
+        // Store user message
+        await conversationService.addMessage(conversationId, {
+          conversationId: conversationId,
+          role: "user",
+          content: userInput
+        })
+
+        // Perform web search
+        const searchResult = await search(userInput, messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        })))
+
+        if (!searchResult) {
+          throw new Error("Web search failed")
+        }
+
+        // Add web search result to messages
+        const webSearchMessage: ChatMessage = {
+          role: "assistant",
+          content: searchResult.response,
+          reasoning: searchResult.reasoning,
+          metadata: { 
+            searchMode: "Web Search",
+            sources: searchResult.sources,
+            toolCalls: searchResult.toolCalls
+          }
+        }
+        
+        const finalMessages = [...newMessages, webSearchMessage]
+        setMessages(finalMessages)
+
+        // Store assistant message with all metadata
+        await conversationService.addMessage(conversationId, {
+          conversationId: conversationId,
+          role: "assistant",
+          content: searchResult.response,
+          reasoning: searchResult.reasoning,
+          metadata: { 
+            searchMode: "Web Search",
+            sources: searchResult.sources,
+            toolCalls: searchResult.toolCalls
+          }
+        })
+
+        // Update conversation title if it's a new conversation
+        if (messages.length === 0) {
+          const title = userInput.slice(0, 50) + (userInput.length > 50 ? '...' : '');
+          await conversationService.updateConversation(conversationId, { title });
+          setConversations(prev => prev.map(conv => 
+            conv.id === conversationId 
+              ? { ...conv, title }
+              : conv
+          ));
+        }
+
+        return
+      } catch (error) {
+        console.error("Web search failed:", error)
+        toast.error("Web search failed. Please try again.")
+        const errorMessage: ChatMessage = {
+          role: "assistant",
+          content: "Sorry, I encountered an error during web search. Please try again."
+        }
+        setMessages(prev => [...prev, errorMessage])
+        return
+      } finally {
+        setIsStreaming(false)
+        setIsProcessing(false)
+        setStreamingMessage("")
+        setFiles([])
+      }
+    }
 
     // IMMEDIATE UI FEEDBACK - Show loading state right away
     setInput("")
@@ -455,6 +574,9 @@ export default function ChatPage() {
       const decoder = new TextDecoder()
       let completeMessage = ""
       let buffer = ""
+      let isReasoningComplete = false
+      let reasoning = ""
+      let finalContent = ""
 
       while (reader) {
         const { done, value } = await reader.read()
@@ -477,7 +599,33 @@ export default function ChatPage() {
               
               if (content) {
                 completeMessage += content
-                setStreamingMessage(completeMessage)
+                
+                // Check if we have reasoning content
+                const thinkMatch = completeMessage.match(/<think>([\s\S]*?)<\/think>/)
+                if (thinkMatch) {
+                  reasoning = thinkMatch[1].trim()
+                  // Show reasoning while it's being streamed
+                  if (!isReasoningComplete) {
+                    setStreamingMessage(`<think>${reasoning}</think>`)
+                  }
+                }
+                
+                // Check if reasoning is complete (we have both opening and closing tags)
+                if (completeMessage.includes('<think>') && completeMessage.includes('</think>')) {
+                  if (!isReasoningComplete) {
+                    isReasoningComplete = true
+                    // Extract final content after reasoning
+                    finalContent = completeMessage.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+                    setStreamingMessage(finalContent)
+                  } else {
+                    // Continue streaming the final content
+                    finalContent = completeMessage.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+                    setStreamingMessage(finalContent)
+                  }
+                } else if (!completeMessage.includes('<think>')) {
+                  // No reasoning, just stream the content normally
+                  setStreamingMessage(completeMessage)
+                }
               }
             } catch (e) {
               // Skip invalid JSON
@@ -495,7 +643,6 @@ export default function ChatPage() {
             const content = parsed.choices?.[0]?.delta?.content
             if (content) {
               completeMessage += content
-              setStreamingMessage(completeMessage)
             }
           } catch (e) {
             // Skip invalid JSON
@@ -503,11 +650,24 @@ export default function ChatPage() {
         }
       }
 
-      // Ensure final message is set correctly
-      setStreamingMessage(completeMessage)
+      // Final parsing of reasoning and content
+      const finalThinkMatch = completeMessage.match(/<think>([\s\S]*?)<\/think>/)
+      if (finalThinkMatch) {
+        reasoning = finalThinkMatch[1].trim()
+        finalContent = completeMessage.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+      } else {
+        finalContent = completeMessage
+      }
 
-      // Add the final message to the messages array
-      const finalMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: completeMessage }]
+      // Ensure final message is set correctly
+      setStreamingMessage(finalContent)
+
+      // Add the final message to the messages array with reasoning
+      const finalMessages: ChatMessage[] = [...newMessages, { 
+        role: "assistant", 
+        content: finalContent,
+        reasoning: reasoning || undefined
+      }]
       setMessages(finalMessages)
 
       // Store assistant message in conversation
@@ -515,7 +675,8 @@ export default function ChatPage() {
         await conversationService.addMessage(conversationId, {
           conversationId: conversationId,
           role: "assistant",
-          content: completeMessage
+          content: finalContent,
+          reasoning: reasoning || undefined
         })
         
         // Update conversation title with the first user message if it's a new conversation
@@ -604,11 +765,9 @@ export default function ChatPage() {
       setIsStreaming(false)
       setIsProcessing(false)
       setStreamingMessage("")
-      setShowReasoning(false)
-      setReasoningText("")
       setFiles([]) // Clear files after sending
     }
-  }, [input, isStreaming, apiKey, messages, mem0Service, files, currentConversationId, selectedModel])
+  }, [input, isStreaming, apiKey, messages, mem0Service, files, currentConversationId, selectedModel, selectedSearchMode, search])
 
   if (showApiSetup) {
     return (
@@ -699,6 +858,8 @@ export default function ChatPage() {
                       apiKey={apiKey}
                       selectedModel={selectedModel}
                       isProcessing={isProcessing}
+                      selectedSearchMode={selectedSearchMode}
+                      onSearchModeChange={setSelectedSearchMode}
                     />
                   </motion.div>
                 </motion.div>
@@ -723,6 +884,8 @@ export default function ChatPage() {
                     isStreaming={isStreaming}
                     isProcessing={isProcessing}
                     selectedModel={selectedModel}
+                    webSearchResult={webSearchResult}
+                    isWebSearchLoading={isWebSearchLoading}
                   />
                 </motion.div>
                 <motion.div 
@@ -752,6 +915,8 @@ export default function ChatPage() {
                       apiKey={apiKey}
                       selectedModel={selectedModel}
                       isProcessing={isProcessing}
+                      selectedSearchMode={selectedSearchMode}
+                      onSearchModeChange={setSelectedSearchMode}
                     />
                   </motion.div>
                 </motion.div>

@@ -46,6 +46,8 @@ interface ChatInputProps {
   apiKey?: string
   selectedModel?: string
   isProcessing: boolean
+  selectedSearchMode?: string
+  onSearchModeChange?: (mode: string) => void
 }
 
 export const ChatInput = memo(function ChatInput({
@@ -58,10 +60,12 @@ export const ChatInput = memo(function ChatInput({
   onFileRemove,
   apiKey,
   selectedModel,
-  isProcessing
+  isProcessing,
+  selectedSearchMode: propSelectedSearchMode,
+  onSearchModeChange
 }: ChatInputProps) {
   const { isKeyboardOpen, inputBottom } = useMobileKeyboard()
-  const [selectedSearchMode, setSelectedSearchMode] = useState<string>("")
+  const [selectedSearchMode, setSelectedSearchMode] = useState<string>(propSelectedSearchMode || "")
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [switchMode, setSwitchMode] = useState<"search" | "atom">("search")
   
@@ -294,6 +298,7 @@ export const ChatInput = memo(function ChatInput({
                         className="flex items-center gap-2 cursor-pointer text-slate-500 hover:text-slate-700"
                         onClick={() => {
                           setSelectedSearchMode("")
+                          onSearchModeChange?.("")
                           toast.success("No mode selected")
                         }}
                       >
@@ -328,6 +333,7 @@ export const ChatInput = memo(function ChatInput({
                           className="flex items-center gap-2 cursor-pointer"
                           onClick={() => {
                             setSelectedSearchMode(mode.id)
+                            onSearchModeChange?.(mode.id)
                             toast.success(`${mode.id} mode`)
                           }}
                         >

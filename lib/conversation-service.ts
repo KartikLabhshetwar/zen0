@@ -18,6 +18,7 @@ export interface ConversationMessage {
   }>
   createdAt: string
   metadata?: Record<string, any>
+  reasoning?: string
 }
 
 class ConversationService {
